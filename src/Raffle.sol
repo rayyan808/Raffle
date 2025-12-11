@@ -88,10 +88,14 @@ contract Raffle is Pausable, VRFConsumerBaseV2Plus {
 
     ///@notice Constructor
     ///@param _aliceToken Address of the Alice ERC20 Token
-    constructor(uint256 _subscriptionId, address _aliceToken) VRFConsumerBaseV2Plus(vrfCoordinator) {
+    constructor(uint256 _subscriptionId, address _aliceToken, address _vrfCoordinator)
+        VRFConsumerBaseV2Plus(_vrfCoordinator)
+    {
         require(address(_aliceToken) != address(0), "Token address is invalid");
         subscriptionId = _subscriptionId;
+        vrfCoordinator = _vrfCoordinator;
         aliceToken = IERC20(_aliceToken);
+        pause();
     }
 
     ///@notice Set the house fee
@@ -102,7 +106,7 @@ contract Raffle is Pausable, VRFConsumerBaseV2Plus {
 
     ///@notice Deposit Pre-determined amount
     function deposit(uint256 amount) public whenNotPaused {
-        if (amount % rafflePrice == 0) {
+        if (amount % rafflePrice != 0) {
             revert NotEnoughDeposit();
         }
         uint256 numberOfTickets = amount / rafflePrice;
@@ -157,13 +161,13 @@ contract Raffle is Pausable, VRFConsumerBaseV2Plus {
         string calldata _winnerReward,
         uint8 _winnerAmount
     ) public onlyOwner whenPaused {
-        _unpause();
         raffleId++;
         rafflePrice = _rafflePrice;
         genericReward = _genericReward;
         genericRewardAmount = _genericAmount;
         winnerReward = _winnerReward;
         winnerRewardAmount = _winnerAmount;
+        unpause();
     }
 
     ///@notice Stop accepting deposits
@@ -181,6 +185,15 @@ contract Raffle is Pausable, VRFConsumerBaseV2Plus {
             })
         );
         pause();
+    }
+
+    ///@notice Inject Capital into the Raffle Pool
+    ///@param amount The amount of ALICE to inject
+    ///@dev Anyone can inject, they are not considered for the raffle. This is essentially for marketing purposes only
+
+    function injectCapital(uint256 amount) public whenNotPaused {
+        require(aliceToken.transferFrom(msg.sender, address(this), amount));
+        currentPool += amount;
     }
 
     ///@notice Pause the Raffle

@@ -10,13 +10,14 @@ contract RaffleScript is Script {
     uint256 subscriptionId = 1;
     address owner = address(0xABCD);
     address aliceToken = address(0x1234);
+    address vrfCoordinator = address(0x5678);
 
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast();
 
-        raffleContract = new Raffle(subscriptionId, address(aliceToken));
+        raffleContract = new Raffle(subscriptionId, aliceToken, vrfCoordinator);
 
         vm.stopBroadcast();
     }
