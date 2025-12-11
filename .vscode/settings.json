@@ -1,0 +1,12 @@
+{
+  "solidity.packageDefaultDependenciesContractsDirectory": "src",
+  "solidity.packageDefaultDependenciesDirectory": "lib",
+  "solidity.compileUsingRemoteVersion": "v0.8.19",
+  "solidity.formatter": "forge",
+  "[solidity]": {
+    "editor.defaultFormatter": "NomicFoundation.hardhat-solidity",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4
+  },
+  "editor.bracketPairColorization.enabled": true
+}
