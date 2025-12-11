@@ -8,6 +8,7 @@ import {Raffle} from "../src/Raffle.sol";
 import {AliceToken} from "./AliceToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+import {Vm} from "forge-std/Vm.sol";
 
 contract RaffleTest is Test {
     Raffle public raffleContract;
@@ -64,6 +65,37 @@ contract RaffleTest is Test {
         emit Raffle.RewardCRC2(user, "generic_reward", 1);
 
         raffleContract.deposit(100);
+        vm.stopPrank();
+    }
+
+    function test_noRewardOnSecondDeposit() public {
+        vm.prank(owner);
+        raffleContract.startRaffle(10, "generic_reward", 1, "winner_reward", 1);
+
+        address user = address(0xBEEF);
+        vm.startPrank(user);
+        aliceToken.mint(user, 200);
+        aliceToken.approve(address(raffleContract), 200);
+
+        // First deposit - should emit RewardCRC2
+        raffleContract.deposit(100);
+
+        // Start recording logs for second deposit
+        vm.recordLogs();
+
+        // Second deposit - should NOT emit RewardCRC2
+        raffleContract.deposit(100);
+
+        // Get recorded logs
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Check that RewardCRC2 was not emitted
+        bytes32 rewardEventSignature = keccak256("RewardCRC2(address,string,uint256)");
+
+        for (uint256 i = 0; i < logs.length; i++) {
+            assertNotEq(logs[i].topics[0], rewardEventSignature, "RewardCRC2 should not be emitted on second deposit");
+        }
+
         vm.stopPrank();
     }
 
