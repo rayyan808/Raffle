@@ -4,205 +4,495 @@ pragma solidity ^0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
-///@title A Raffle System that rewards ALICE and in-game NFTs
-///@author Rayyan Jafri rayyan808@gmail.com
+/// @title A Raffle System that rewards ALICE and in-game NFTs
+/// @author Rayyan Jafri rayyan808@gmail.com
+/// @notice This contract implements a fair raffle system using Chainlink VRF for randomness
+/// @custom:security-contact rayyan808@gmail.com
 
-contract Raffle is Pausable, VRFConsumerBaseV2Plus {
-    /**
-     * Notes: Transfer Ownership of the proxy to a multi-sig
-     * Proxy owner cannot interact with logic contracts, so important to assign it to another wallet avoid confusion
-     */
-    /**
-     * @dev Sepolia Configs
-     */
-    uint256 subscriptionId;
-    address vrfCoordinator = 0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B;
-    bytes32 keyHash = 0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
-    uint32 callbackGasLimit = 40000;
-    uint16 requestConfirmations = 3;
-    uint32 numWords = 1;
+contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
+    // ============ Constants ============
 
-    uint256 public currentPool;
-    ///@notice Track each users number of deposits
-    mapping(address => uint256) private deposits;
+    /// @notice Basis points denominator (100% = 10000)
+    uint256 private constant BASIS_POINTS = 10000;
 
-    ///@notice Track each users claimed rewards
-    mapping(address => uint8) private claimedRewards;
+    /// @notice Maximum house fee in basis points (50%)
+    uint256 private constant MAX_HOUSE_FEE = 5000;
 
-    ///@notice Track each winner thats claimed
-    mapping(address => uint8) private claimedWinners;
-
-    ///@notice Winners
-    mapping(uint8 => address) public winners;
-
-    ///@notice Raffle Tickets
-    address[] members;
-
-    ///@notice raffleActive
-    bool public raffleActive = false;
-
-    ///@notice Raffle ID
-    uint8 private raffleId = 0;
-
-    ///@notice Generic Reward CRC2 Name
-    string private genericReward = "prototype_name";
-
-    ///@notice Generic Reward Amount
-    uint8 private genericRewardAmount = 1;
-
-    ///@notice Winner Reward CRC2 Name
-    string private winnerReward = "prototype_name";
-
-    ///@notice Winner Reward Amount
-    uint8 private winnerRewardAmount = 1;
-
-    ///@notice Cost of Raffle Ticket in ALICE
-    uint256 rafflePrice = 10;
-
-    ///@notice The percentage of total raffle going to MNA in basis points (1% = 100 bps)
-    uint256 private houseFee = 2500; //25%
-
-    IERC20 private aliceToken;
+    /// @notice ALICE token decimals
     uint256 private constant ALICE_DECIMALS = 6;
 
-    error NotEnoughDeposit();
-    error YouAreNotWinner();
+    // ============ Immutables ============
+
+    /// @notice The ALICE ERC20 token
+    IERC20 public immutable aliceToken;
+
+    // ============ VRF Configuration ============
+
+    /// @notice Chainlink VRF subscription ID
+    uint256 public subscriptionId;
+
+    /// @notice Chainlink VRF key hash
+    bytes32 public keyHash;
+
+    /// @notice Callback gas limit for VRF
+    uint32 public callbackGasLimit;
+
+    /// @notice Number of confirmations for VRF
+    uint16 public requestConfirmations;
+
+    /// @notice Number of random words to request
+    uint32 private constant NUM_WORDS = 1;
+
+    // ============ Raffle State ============
+
+    /// @notice Current raffle ID (starts at 1)
+    uint256 public currentRaffleId;
+
+    /// @notice Tracks if we're waiting for VRF response
+    bool public awaitingVRF;
+
+    /// @notice Pending VRF request ID
+    uint256 private pendingRequestId;
+
+    /// @notice The percentage of total raffle going to house in basis points
+    uint256 public houseFee;
+
+    /// @notice Accumulated house fees available for withdrawal
+    uint256 public accumulatedHouseFees;
+
+    // ============ Raffle Configuration Per Raffle ============
+
+    struct RaffleConfig {
+        uint256 ticketPrice;
+        string genericReward;
+        uint8 genericRewardAmount;
+        string winnerReward;
+        uint8 winnerRewardAmount;
+        uint256 prizePool;
+        address winner;
+        bool winnerClaimed;
+        bool isActive;
+    }
+
+    /// @notice Configuration for each raffle
+    mapping(uint256 => RaffleConfig) public raffles;
+
+    /// @notice Raffle tickets for each raffle (raffleId => participants)
+    mapping(uint256 => address[]) private raffleTickets;
+
+    /// @notice Track claimed generic rewards per raffle (raffleId => user => claimed)
+    mapping(uint256 => mapping(address => bool)) private hasClaimedGenericReward;
+
+    /// @notice Track user ticket count per raffle (raffleId => user => count)
+    mapping(uint256 => mapping(address => uint256)) public userTicketCount;
+
+    // ============ Errors ============
+
+    error InvalidAmount();
+    error InvalidTicketPrice();
+    error NotWinner();
     error RewardAlreadyClaimed();
     error RaffleNotActive();
-    error PendingWinner();
-    /// @custom:security-contact rayyan808@gmail.com
+    error RaffleStillActive();
+    error NoParticipants();
+    error VRFRequestPending();
+    error InvalidVRFRequest();
+    error InvalidFee();
+    error NothingToWithdraw();
+    error InvalidAddress();
+    error TransferFailed();
 
-    ///@notice Reward CRC2 Event
-    ///@param wallet The wallet
-    ///@param token The in-game reward token
-    ///@param amount The amount of reward token
-    event RewardCRC2(address indexed wallet, string token, uint8 indexed amount);
+    // ============ Events ============
 
-    ///@notice Winner Selected Event
-    ///@param winner The winner address
-    ///@param raffleId The raffle ID
-    event WinnerSelected(address indexed winner, uint8 indexed raffleId);
+    /// @notice Emitted when a user deposits and receives tickets
+    /// @param user The depositor's address
+    /// @param raffleId The raffle ID
+    /// @param amount The amount deposited
+    /// @param ticketCount Number of tickets received
+    event Deposit(address indexed user, uint256 indexed raffleId, uint256 amount, uint256 ticketCount);
 
-    ///@notice Constructor
-    ///@param _aliceToken Address of the Alice ERC20 Token
-    constructor(uint256 _subscriptionId, address _aliceToken, address _vrfCoordinator)
-        VRFConsumerBaseV2Plus(_vrfCoordinator)
-    {
-        require(address(_aliceToken) != address(0), "Token address is invalid");
-        subscriptionId = _subscriptionId;
-        vrfCoordinator = _vrfCoordinator;
+    /// @notice Emitted when a generic CRC2 reward is given
+    /// @param wallet The recipient wallet
+    /// @param raffleId The raffle ID
+    /// @param token The in-game reward token name
+    /// @param amount The amount of reward token
+    event GenericRewardClaimed(address indexed wallet, uint256 indexed raffleId, string token, uint8 amount);
+
+    /// @notice Emitted when a winner claims their reward
+    /// @param winner The winner's address
+    /// @param raffleId The raffle ID
+    /// @param token The winner reward token name
+    /// @param tokenAmount The token amount
+    /// @param prizeAmount The ALICE prize amount
+    event WinnerRewardClaimed(
+        address indexed winner, uint256 indexed raffleId, string token, uint8 tokenAmount, uint256 prizeAmount
+    );
+
+    /// @notice Emitted when a winner is selected
+    /// @param winner The winner's address
+    /// @param raffleId The raffle ID
+    /// @param winnerIndex The index in the tickets array
+    event WinnerSelected(address indexed winner, uint256 indexed raffleId, uint256 winnerIndex);
+
+    /// @notice Emitted when a raffle starts
+    /// @param raffleId The raffle ID
+    /// @param ticketPrice Price per ticket
+    event RaffleStarted(uint256 indexed raffleId, uint256 ticketPrice);
+
+    /// @notice Emitted when a raffle stops and VRF is requested
+    /// @param raffleId The raffle ID
+    /// @param requestId The VRF request ID
+    /// @param totalTickets Total tickets sold
+    event RaffleStopped(uint256 indexed raffleId, uint256 requestId, uint256 totalTickets);
+
+    /// @notice Emitted when capital is injected
+    /// @param injector The address injecting capital
+    /// @param raffleId The raffle ID
+    /// @param amount The amount injected
+    event CapitalInjected(address indexed injector, uint256 indexed raffleId, uint256 amount);
+
+    /// @notice Emitted when house fees are withdrawn
+    /// @param recipient The recipient address
+    /// @param amount The amount withdrawn
+    event HouseFeesWithdrawn(address indexed recipient, uint256 amount);
+
+    /// @notice Emitted when house fee is updated
+    /// @param oldFee The old fee in basis points
+    /// @param newFee The new fee in basis points
+    event HouseFeeUpdated(uint256 oldFee, uint256 newFee);
+
+    /// @notice Emitted when VRF config is updated
+    event VRFConfigUpdated(
+        uint256 subscriptionId, bytes32 keyHash, uint32 callbackGasLimit, uint16 requestConfirmations
+    );
+
+    // ============ Constructor ============
+
+    /// @notice Initialize the Raffle contract
+    /// @param _subscriptionId Chainlink VRF subscription ID
+    /// @param _aliceToken Address of the ALICE ERC20 token
+    /// @param _vrfCoordinator Address of the VRF Coordinator
+    /// @param _keyHash VRF key hash
+    /// @param _callbackGasLimit Gas limit for VRF callback
+    /// @param _requestConfirmations Number of confirmations for VRF
+    /// @param _houseFee Initial house fee in basis points
+    constructor(
+        uint256 _subscriptionId,
+        address _aliceToken,
+        address _vrfCoordinator,
+        bytes32 _keyHash,
+        uint32 _callbackGasLimit,
+        uint16 _requestConfirmations,
+        uint256 _houseFee
+    ) VRFConsumerBaseV2Plus(_vrfCoordinator) {
+        if (_aliceToken == address(0)) revert InvalidAddress();
+        if (_houseFee > MAX_HOUSE_FEE) revert InvalidFee();
+
         aliceToken = IERC20(_aliceToken);
-        pause();
+        subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
+        callbackGasLimit = _callbackGasLimit;
+        requestConfirmations = _requestConfirmations;
+        houseFee = _houseFee;
+
+        // Start paused, no active raffle
+        _pause();
     }
 
-    ///@notice Set the house fee
-    ///@param percentage The percentage value in whole number
-    function setFee(uint8 percentage) public onlyOwner {
-        houseFee = percentage;
+    // ============ User Functions ============
+
+    /// @notice Deposit ALICE tokens to receive raffle tickets
+    /// @param amount The amount of ALICE to deposit (must be multiple of ticket price)
+    function deposit(uint256 amount) external whenNotPaused nonReentrant {
+        RaffleConfig storage raffle = raffles[currentRaffleId];
+
+        if (!raffle.isActive) revert RaffleNotActive();
+
+        uint256 ticketPrice = raffle.ticketPrice;
+        if (amount == 0 || amount % ticketPrice != 0) revert InvalidAmount();
+
+        uint256 numberOfTickets = amount / ticketPrice;
+
+        // Transfer tokens
+        bool success = aliceToken.transferFrom(msg.sender, address(this), amount);
+        if (!success) revert TransferFailed();
+
+        // Update prize pool
+        raffle.prizePool += amount;
+
+        // Add tickets
+        address[] storage tickets = raffleTickets[currentRaffleId];
+        for (uint256 i = 0; i < numberOfTickets; i++) {
+            tickets.push(msg.sender);
+        }
+
+        // Track user's ticket count
+        userTicketCount[currentRaffleId][msg.sender] += numberOfTickets;
+
+        emit Deposit(msg.sender, currentRaffleId, amount, numberOfTickets);
+
+        // Award generic reward (once per raffle per user)
+        if (!hasClaimedGenericReward[currentRaffleId][msg.sender]) {
+            hasClaimedGenericReward[currentRaffleId][msg.sender] = true;
+            emit GenericRewardClaimed(msg.sender, currentRaffleId, raffle.genericReward, raffle.genericRewardAmount);
+        }
     }
 
-    ///@notice Deposit Pre-determined amount
-    function deposit(uint256 amount) public whenNotPaused {
-        if (amount % rafflePrice != 0) {
-            revert NotEnoughDeposit();
-        }
-        uint256 numberOfTickets = amount / rafflePrice;
+    /// @notice Claim winner reward for a specific raffle
+    /// @param raffleId The raffle ID to claim for
+    function claimWinnerReward(uint256 raffleId) external nonReentrant {
+        RaffleConfig storage raffle = raffles[raffleId];
 
-        require(aliceToken.transferFrom(msg.sender, address(this), amount));
+        // Must be the winner
+        if (raffle.winner != msg.sender) revert NotWinner();
 
-        currentPool += amount;
-        for (uint256 i = 0; i < numberOfTickets; i += 1) {
-            members.push(msg.sender);
-        }
-        //prevent double spending
-        if (claimedRewards[msg.sender] < raffleId) {
-            claimedRewards[msg.sender] = raffleId;
-            emit RewardCRC2(msg.sender, genericReward, genericRewardAmount);
-        }
-    }
-    ///@notice Claim Reward if winner, Only callable when Raffle is paused
+        // Must not have claimed already
+        if (raffle.winnerClaimed) revert RewardAlreadyClaimed();
 
-    function claimReward() public whenPaused {
-        if (winners[raffleId] != msg.sender) {
-            revert YouAreNotWinner();
-        }
-        if (claimedRewards[msg.sender] == raffleId) {
-            revert RewardAlreadyClaimed();
-        }
-        claimedRewards[msg.sender] = raffleId;
-        emit RewardCRC2(msg.sender, winnerReward, winnerRewardAmount);
-        uint256 prize = currentPool;
-        currentPool = 0;
-        require(aliceToken.transferFrom(address(this), msg.sender, prize - (prize * houseFee) / 10000));
+        // Raffle must be finished (not active and has a winner)
+        if (raffle.isActive) revert RaffleStillActive();
+
+        // Mark as claimed
+        raffle.winnerClaimed = true;
+
+        // Calculate prize
+        uint256 totalPrize = raffle.prizePool;
+        uint256 houseCut = (totalPrize * houseFee) / BASIS_POINTS;
+        uint256 winnerPrize = totalPrize - houseCut;
+
+        // Track house fees
+        accumulatedHouseFees += houseCut;
+
+        // Transfer prize to winner
+        bool success = aliceToken.transfer(msg.sender, winnerPrize);
+        if (!success) revert TransferFailed();
+
+        emit WinnerRewardClaimed(msg.sender, raffleId, raffle.winnerReward, raffle.winnerRewardAmount, winnerPrize);
     }
 
-    ///@notice Callback function used by VRF Coordinator
-    ///@param randomWords The array of random words generated
+    /// @notice Inject capital into the current raffle pool
+    /// @param amount The amount of ALICE to inject
+    /// @dev Anyone can inject capital for marketing/promotional purposes
+    function injectCapital(uint256 amount) external whenNotPaused nonReentrant {
+        if (amount == 0) revert InvalidAmount();
 
-    function fulfillRandomWords(uint256, uint256[] calldata randomWords) internal override {
-        uint256 winnerIndex = (randomWords[0] % members.length);
-        emit WinnerSelected(members[winnerIndex], raffleId);
-        winners[raffleId] = members[winnerIndex];
+        RaffleConfig storage raffle = raffles[currentRaffleId];
+        if (!raffle.isActive) revert RaffleNotActive();
+
+        bool success = aliceToken.transferFrom(msg.sender, address(this), amount);
+        if (!success) revert TransferFailed();
+
+        raffle.prizePool += amount;
+
+        emit CapitalInjected(msg.sender, currentRaffleId, amount);
     }
 
-    ///@notice Start accepting deposits
-    ///@param _rafflePrice The amount of the CRC2 Token reward
-    ///@param _genericReward The amount of the CRC2 Token reward to all participants
-    ///@param _genericAmount The amount of the CRC2 Token reward to all participants
-    ///@param _winnerReward The name of the CRC2 Token to reward the winner
-    ///@param _winnerAmount The amount of the CRC2 Token reward to the winner
+    // ============ Admin Functions ============
+
+    /// @notice Start a new raffle
+    /// @param _ticketPrice Price per ticket in ALICE (with decimals)
+    /// @param _genericReward Name of generic CRC2 reward token
+    /// @param _genericAmount Amount of generic reward
+    /// @param _winnerReward Name of winner CRC2 reward token
+    /// @param _winnerAmount Amount of winner reward
     function startRaffle(
-        uint256 _rafflePrice,
+        uint256 _ticketPrice,
         string calldata _genericReward,
         uint8 _genericAmount,
         string calldata _winnerReward,
         uint8 _winnerAmount
-    ) public onlyOwner whenPaused {
-        raffleId++;
-        rafflePrice = _rafflePrice;
-        genericReward = _genericReward;
-        genericRewardAmount = _genericAmount;
-        winnerReward = _winnerReward;
-        winnerRewardAmount = _winnerAmount;
-        unpause();
+    ) external onlyOwner {
+        if (awaitingVRF) revert VRFRequestPending();
+        if (_ticketPrice == 0) revert InvalidTicketPrice();
+
+        // Increment raffle ID
+        currentRaffleId++;
+
+        // Configure new raffle
+        RaffleConfig storage raffle = raffles[currentRaffleId];
+        raffle.ticketPrice = _ticketPrice;
+        raffle.genericReward = _genericReward;
+        raffle.genericRewardAmount = _genericAmount;
+        raffle.winnerReward = _winnerReward;
+        raffle.winnerRewardAmount = _winnerAmount;
+        raffle.isActive = true;
+
+        // Unpause to allow deposits
+        _unpause();
+
+        emit RaffleStarted(currentRaffleId, _ticketPrice);
     }
 
-    ///@notice Stop accepting deposits
-    function stopRaffle() public onlyOwner whenNotPaused {
-        //Call VRF
-        s_vrfCoordinator.requestRandomWords(
+    /// @notice Stop the current raffle and request VRF for winner selection
+    function stopRaffle() external onlyOwner whenNotPaused {
+        RaffleConfig storage raffle = raffles[currentRaffleId];
+
+        if (!raffle.isActive) revert RaffleNotActive();
+
+        address[] storage tickets = raffleTickets[currentRaffleId];
+        if (tickets.length == 0) revert NoParticipants();
+
+        // Mark raffle as inactive
+        raffle.isActive = false;
+
+        // Set VRF pending flag
+        awaitingVRF = true;
+
+        // Request random number
+        pendingRequestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: keyHash,
                 subId: subscriptionId,
                 requestConfirmations: requestConfirmations,
                 callbackGasLimit: callbackGasLimit,
-                numWords: numWords,
-                // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
+                numWords: NUM_WORDS,
                 extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
             })
         );
-        pause();
+
+        // Pause contract
+        _pause();
+
+        emit RaffleStopped(currentRaffleId, pendingRequestId, tickets.length);
     }
 
-    ///@notice Inject Capital into the Raffle Pool
-    ///@param amount The amount of ALICE to inject
-    ///@dev Anyone can inject, they are not considered for the raffle. This is essentially for marketing purposes only
+    /// @notice Set the house fee
+    /// @param _houseFee The fee in basis points (100 = 1%, max 5000 = 50%)
+    function setHouseFee(uint256 _houseFee) external onlyOwner {
+        if (_houseFee > MAX_HOUSE_FEE) revert InvalidFee();
 
-    function injectCapital(uint256 amount) public whenNotPaused {
-        require(aliceToken.transferFrom(msg.sender, address(this), amount));
-        currentPool += amount;
+        uint256 oldFee = houseFee;
+        houseFee = _houseFee;
+
+        emit HouseFeeUpdated(oldFee, _houseFee);
     }
 
-    ///@notice Pause the Raffle
-    function pause() public onlyOwner {
+    /// @notice Update VRF configuration
+    /// @param _subscriptionId New subscription ID
+    /// @param _keyHash New key hash
+    /// @param _callbackGasLimit New callback gas limit
+    /// @param _requestConfirmations New request confirmations
+    function updateVRFConfig(
+        uint256 _subscriptionId,
+        bytes32 _keyHash,
+        uint32 _callbackGasLimit,
+        uint16 _requestConfirmations
+    ) external onlyOwner {
+        subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
+        callbackGasLimit = _callbackGasLimit;
+        requestConfirmations = _requestConfirmations;
+
+        emit VRFConfigUpdated(_subscriptionId, _keyHash, _callbackGasLimit, _requestConfirmations);
+    }
+
+    /// @notice Withdraw accumulated house fees
+    /// @param recipient Address to receive the fees
+    function withdrawHouseFees(address recipient) external onlyOwner nonReentrant {
+        if (recipient == address(0)) revert InvalidAddress();
+
+        uint256 amount = accumulatedHouseFees;
+        if (amount == 0) revert NothingToWithdraw();
+
+        accumulatedHouseFees = 0;
+
+        bool success = aliceToken.transfer(recipient, amount);
+        if (!success) revert TransferFailed();
+
+        emit HouseFeesWithdrawn(recipient, amount);
+    }
+
+    /// @notice Emergency pause (only when not waiting for VRF)
+    function emergencyPause() external onlyOwner {
+        if (awaitingVRF) revert VRFRequestPending();
         _pause();
     }
-    ///@notice Unpause the Raffle
 
-    function unpause() public onlyOwner {
-        _unpause();
+    // ============ VRF Callback ============
+
+    /// @notice Callback function used by VRF Coordinator
+    /// @param requestId The VRF request ID
+    /// @param randomWords The array of random words generated
+    function fulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) internal override {
+        // Verify this is the expected request
+        if (requestId != pendingRequestId) revert InvalidVRFRequest();
+
+        // Clear VRF pending flag
+        awaitingVRF = false;
+
+        address[] storage tickets = raffleTickets[currentRaffleId];
+        uint256 winnerIndex = randomWords[0] % tickets.length;
+        address winner = tickets[winnerIndex];
+
+        // Record winner
+        raffles[currentRaffleId].winner = winner;
+
+        emit WinnerSelected(winner, currentRaffleId, winnerIndex);
+    }
+
+    // ============ View Functions ============
+
+    /// @notice Get the number of tickets for a raffle
+    /// @param raffleId The raffle ID
+    /// @return The number of tickets
+    function getTicketCount(uint256 raffleId) external view returns (uint256) {
+        return raffleTickets[raffleId].length;
+    }
+
+    /// @notice Get raffle configuration
+    /// @param raffleId The raffle ID
+    /// @return config The raffle configuration
+    function getRaffleConfig(uint256 raffleId) external view returns (RaffleConfig memory config) {
+        return raffles[raffleId];
+    }
+
+    /// @notice Get the winner of a raffle
+    /// @param raffleId The raffle ID
+    /// @return The winner's address (address(0) if no winner yet)
+    function getWinner(uint256 raffleId) external view returns (address) {
+        return raffles[raffleId].winner;
+    }
+
+    /// @notice Get the prize pool for a raffle
+    /// @param raffleId The raffle ID
+    /// @return The prize pool amount
+    function getPrizePool(uint256 raffleId) external view returns (uint256) {
+        return raffles[raffleId].prizePool;
+    }
+
+    /// @notice Check if a user has claimed their generic reward for a raffle
+    /// @param raffleId The raffle ID
+    /// @param user The user's address
+    /// @return Whether the user has claimed
+    function hasClaimedGeneric(uint256 raffleId, address user) external view returns (bool) {
+        return hasClaimedGenericReward[raffleId][user];
+    }
+
+    /// @notice Calculate the current ticket price in human-readable format
+    /// @param raffleId The raffle ID
+    /// @return The ticket price with decimals applied
+    function getTicketPriceFormatted(uint256 raffleId) external view returns (uint256) {
+        return raffles[raffleId].ticketPrice / (10 ** ALICE_DECIMALS);
+    }
+
+    /// @notice Get user's tickets for a specific raffle
+    /// @param raffleId The raffle ID
+    /// @param user The user's address
+    /// @return The number of tickets the user has
+    function getUserTickets(uint256 raffleId, address user) external view returns (uint256) {
+        return userTicketCount[raffleId][user];
+    }
+
+    /// @notice Calculate potential winner prize after house fee
+    /// @param raffleId The raffle ID
+    /// @return The prize amount after fees
+    function calculateWinnerPrize(uint256 raffleId) external view returns (uint256) {
+        uint256 pool = raffles[raffleId].prizePool;
+        uint256 houseCut = (pool * houseFee) / BASIS_POINTS;
+        return pool - houseCut;
     }
 }
