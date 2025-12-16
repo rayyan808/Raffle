@@ -9,7 +9,7 @@ const CONFIG = {
   ACTIVE_NETWORK: 'sepolia',
   ALICE_DECIMALS: 6,
   // Get your client ID from https://dashboard.web3auth.io
-  WEB3AUTH_CLIENT_ID: 'BCjQ33Sgyu2Ud25FasdXWMTBWTGyb82RKcuyPPe4HX9v8L_FLPJ9KYkKT-nxAiRhsnyJ8DwQDyV_71-IYs5Wef0',
+  WEB3AUTH_CLIENT_ID: 'ASK_SOMEBODY_FOR_WEB3AUTH_CLIENT_ID',
   
   // Web3Auth network: 'sapphire_devnet' for testing, 'sapphire_mainnet' for production
   WEB3AUTH_NETWORK: 'sapphire_devnet',
