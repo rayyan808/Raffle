@@ -113,41 +113,6 @@ interface NetworkConfig {
   explorerUrl: string;
 }
 
-// ============ Network Configurations ============
-
-const NETWORKS: Record<string, NetworkConfig> = {
-  mainnet: {
-    name: 'Ethereum Mainnet',
-    rpcUrl: process.env.RPC_URL_MAINNET || 'https://eth.llamarpc.com',
-    chainId: 1,
-    explorerUrl: 'https://etherscan.io',
-  },
-  sepolia: {
-    name: 'Ethereum Sepolia',
-    rpcUrl: process.env.RPC_URL_SEPOLIA || 'https://rpc.sepolia.org',
-    chainId: 11155111,
-    explorerUrl: 'https://sepolia.etherscan.io',
-  },
-  bsc: {
-    name: 'BSC Mainnet',
-    rpcUrl: process.env.RPC_URL_BSC || 'https://bsc-dataseed.binance.org',
-    chainId: 56,
-    explorerUrl: 'https://bscscan.com',
-  },
-  bscTestnet: {
-    name: 'BSC Testnet',
-    rpcUrl: process.env.RPC_URL_BSC_TESTNET || 'https://data-seed-prebsc-1-s1.binance.org:8545',
-    chainId: 97,
-    explorerUrl: 'https://testnet.bscscan.com',
-  },
-  localhost: {
-    name: 'Localhost',
-    rpcUrl: 'http://127.0.0.1:8545',
-    chainId: 31337,
-    explorerUrl: '',
-  },
-};
-
 // ============ Raffle Client Class ============
 
 export class RaffleClient {
@@ -787,11 +752,48 @@ export async function displayUserStatus(client: RaffleClient, userAddress: strin
 
   console.log('\n' + '='.repeat(60));
 }
+// ============ Network Configurations ============
+
+const NETWORKS: Record<string, NetworkConfig> = {
+  mainnet: {
+    name: 'Ethereum Mainnet',
+    rpcUrl: 'https://eth.llamarpc.com',
+    chainId: 1,
+    explorerUrl: 'https://etherscan.io',
+  },
+  sepolia: {
+    name: 'Ethereum Sepolia',
+    rpcUrl: 'https://rpc.sepolia.org',
+    chainId: 11155111,
+    explorerUrl: 'https://sepolia.etherscan.io',
+  },
+  bsc: {
+    name: 'BSC Mainnet',
+    rpcUrl: 'https://bsc-dataseed.binance.org',
+    chainId: 56,
+    explorerUrl: 'https://bscscan.com',
+  },
+  bscTestnet: {
+    name: 'BSC Testnet',
+    rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545',
+    chainId: 97,
+    explorerUrl: 'https://testnet.bscscan.com',
+  },
+  localhost: {
+    name: 'Localhost',
+    rpcUrl: 'http://127.0.0.1:8545',
+    chainId: 31337,
+    explorerUrl: '',
+  },
+};
 
 // ============ Example Usage ============
 
 async function main() {
   // Configuration
+  /**
+   * All of this data should actually come from the config data object and web3 provider
+   */
   const RAFFLE_ADDRESS = process.env.RAFFLE_CONTRACT_ADDRESS;
   const PRIVATE_KEY = process.env.PRIVATE_KEY;
   const NETWORK = process.env.NETWORK || 'sepolia';

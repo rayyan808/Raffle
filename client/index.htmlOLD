@@ -30,7 +30,11 @@
       --glow-gold: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.2);
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
     body {
       font-family: var(--font-body);
@@ -40,10 +44,13 @@
       overflow-x: hidden;
     }
 
+    /* Animated Background */
     .bg-grid {
       position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background-image: 
         linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
@@ -54,8 +61,10 @@
 
     .bg-gradient {
       position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: 
         radial-gradient(ellipse at 20% 20%, rgba(0, 240, 255, 0.1) 0%, transparent 50%),
         radial-gradient(ellipse at 80% 80%, rgba(255, 0, 170, 0.1) 0%, transparent 50%);
@@ -63,6 +72,7 @@
       z-index: 0;
     }
 
+    /* App Container */
     #root {
       position: relative;
       z-index: 1;
@@ -71,6 +81,7 @@
       flex-direction: column;
     }
 
+    /* Header */
     .header {
       padding: 1.5rem 2rem;
       display: flex;
@@ -90,6 +101,7 @@
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      text-shadow: var(--glow-cyan);
     }
 
     .connect-btn {
@@ -102,8 +114,25 @@
       border: 2px solid var(--color-accent-primary);
       color: var(--color-accent-primary);
       cursor: pointer;
+      position: relative;
+      overflow: hidden;
       transition: all 0.3s ease;
       text-transform: uppercase;
+    }
+
+    .connect-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.2), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .connect-btn:hover::before {
+      left: 100%;
     }
 
     .connect-btn:hover {
@@ -123,6 +152,7 @@
       margin-top: 0.3rem;
     }
 
+    /* Main Content */
     .main {
       flex: 1;
       display: flex;
@@ -131,6 +161,7 @@
       padding: 3rem 2rem;
     }
 
+    /* Status Badge */
     .status-badge {
       display: inline-flex;
       align-items: center;
@@ -179,6 +210,7 @@
       50% { opacity: 0.5; }
     }
 
+    /* Cards */
     .card {
       background: var(--color-bg-card);
       border: 1px solid var(--color-border);
@@ -187,12 +219,15 @@
       width: 100%;
       max-width: 500px;
       position: relative;
+      overflow: hidden;
     }
 
     .card::before {
       content: '';
       position: absolute;
-      top: 0; left: 0; right: 0;
+      top: 0;
+      left: 0;
+      right: 0;
       height: 2px;
       background: linear-gradient(90deg, var(--color-accent-primary), var(--color-accent-secondary));
     }
@@ -204,8 +239,10 @@
       letter-spacing: 0.1em;
       text-transform: uppercase;
       margin-bottom: 1.5rem;
+      color: var(--color-text-primary);
     }
 
+    /* Stats Grid */
     .stats-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -242,12 +279,18 @@
       text-shadow: var(--glow-gold);
     }
 
+    .stat-value.pink {
+      color: var(--color-accent-secondary);
+      text-shadow: var(--glow-pink);
+    }
+
     .stat-unit {
       font-size: 0.8rem;
       color: var(--color-text-secondary);
       margin-left: 0.3rem;
     }
 
+    /* Rewards Section */
     .rewards-section {
       border-top: 1px solid var(--color-border);
       padding-top: 1.5rem;
@@ -264,8 +307,14 @@
       margin-bottom: 1rem;
     }
 
-    .reward-icon { font-size: 1.5rem; margin-right: 1rem; }
-    .reward-info { flex: 1; }
+    .reward-icon {
+      font-size: 1.5rem;
+      margin-right: 1rem;
+    }
+
+    .reward-info {
+      flex: 1;
+    }
 
     .reward-name {
       font-family: var(--font-display);
@@ -288,6 +337,7 @@
       color: var(--color-accent-gold);
     }
 
+    /* Winner Section */
     .winner-section {
       text-align: center;
       padding: 2rem;
@@ -309,6 +359,7 @@
       font-family: var(--font-display);
       font-size: 0.9rem;
       font-weight: 500;
+      color: var(--color-text-primary);
       word-break: break-all;
       margin-bottom: 1rem;
     }
@@ -321,6 +372,7 @@
       text-shadow: var(--glow-gold);
     }
 
+    /* Claim Button */
     .claim-btn {
       width: 100%;
       padding: 1.2rem 2rem;
@@ -333,6 +385,8 @@
       border: none;
       color: #000;
       cursor: pointer;
+      position: relative;
+      overflow: hidden;
       transition: all 0.3s ease;
     }
 
@@ -346,6 +400,27 @@
       cursor: not-allowed;
     }
 
+    .claim-btn.loading {
+      pointer-events: none;
+    }
+
+    .claim-btn.loading::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 200%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+
+    /* Loading State */
     .loading-container {
       display: flex;
       flex-direction: column;
@@ -362,7 +437,9 @@
       animation: spin 1s linear infinite;
     }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
 
     .loading-text {
       font-family: var(--font-display);
@@ -372,6 +449,7 @@
       text-transform: uppercase;
     }
 
+    /* Error State */
     .error-message {
       text-align: center;
       padding: 2rem;
@@ -380,6 +458,7 @@
       color: #ff6b6b;
     }
 
+    /* No Winner State */
     .no-winner {
       text-align: center;
       padding: 2rem;
@@ -392,6 +471,7 @@
       opacity: 0.5;
     }
 
+    /* Toast Notifications */
     .toast {
       position: fixed;
       bottom: 2rem;
@@ -406,14 +486,28 @@
       animation: slideIn 0.3s ease;
     }
 
-    .toast.success { border-color: var(--color-success); color: var(--color-success); }
-    .toast.error { border-color: #ff6b6b; color: #ff6b6b; }
-
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
+    .toast.success {
+      border-color: var(--color-success);
+      color: var(--color-success);
     }
 
+    .toast.error {
+      border-color: #ff6b6b;
+      color: #ff6b6b;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    /* Raffle ID */
     .raffle-id {
       font-family: var(--font-display);
       font-size: 0.7rem;
@@ -423,6 +517,7 @@
       margin-bottom: 1rem;
     }
 
+    /* Footer */
     .footer {
       text-align: center;
       padding: 1.5rem;
@@ -431,51 +526,87 @@
       border-top: 1px solid var(--color-border);
     }
 
+    /* Responsive */
     @media (max-width: 600px) {
-      .header { flex-direction: column; gap: 1rem; text-align: center; }
-      .stats-grid { grid-template-columns: 1fr; }
-      .card { padding: 1.5rem; }
-      .stat-value { font-size: 1.5rem; }
+      .header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card {
+        padding: 1.5rem;
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+      }
     }
   </style>
 </head>
 <body>
   <div class="bg-grid"></div>
   <div class="bg-gradient"></div>
-  <div id="root">
-    <div class="main">
-      <div class="loading-container">
-        <div class="loading-spinner"></div>
-        <div class="loading-text">Loading...</div>
-      </div>
-    </div>
-  </div>
+  <div id="root"></div>
 
-  <!-- Dependencies -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- React & Dependencies -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+  <script src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@web3auth/modal@8.0.1/dist/modal.umd.min.js"></script>
+  
+  <!-- Configuration (edit config.js to customize) -->
+  <script src="config.js"></script>
 
   <script type="text/babel">
     const { useState, useEffect, useCallback } = React;
+    const { ethers } = window;
 
-    // ============ CONFIGURATION - EDIT THESE VALUES ============
+    // ============ Load Configuration ============
     
-    // Your deployed Raffle contract address
-    const RAFFLE_CONTRACT_ADDRESS = '0x2688184E2bBde09b7D22f0691f0D4ebbD3b39b1C';
+    // Get config from external file or use defaults
+    const CONFIG = window.RAFFLE_CONFIG || {};
     
-    // Network RPC URL (Sepolia example)
-    const RPC_URL = 'https://rpc.sepolia.org';
-    const CHAIN_ID = 11155111;
-    const CHAIN_NAME = 'Sepolia Testnet';
+    // Contract address - UPDATE THIS or set in config.js
+    const RAFFLE_CONTRACT_ADDRESS = CONFIG.RAFFLE_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';
     
+    // Web3Auth Client ID - Get from https://dashboard.web3auth.io
+    const WEB3AUTH_CLIENT_ID = CONFIG.WEB3AUTH_CLIENT_ID || 'YOUR_WEB3AUTH_CLIENT_ID';
+    
+    // Web3Auth network
+    const WEB3AUTH_NETWORK = CONFIG.WEB3AUTH_NETWORK || 'sapphire_devnet';
+    
+    // Active network configuration
+    const ACTIVE_NETWORK = CONFIG.ACTIVE_NETWORK || 'sepolia';
+    const NETWORKS = CONFIG.NETWORKS || {
+      sepolia: {
+        chainId: '0xaa36a7',
+        chainNamespace: 'eip155',
+        rpcTarget: 'https://rpc.sepolia.org',
+        displayName: 'Sepolia Testnet',
+        blockExplorer: 'https://sepolia.etherscan.io',
+        ticker: 'ETH',
+        tickerName: 'Ethereum',
+      }
+    };
+    
+    const CHAIN_CONFIG = NETWORKS[ACTIVE_NETWORK] || NETWORKS.sepolia;
+
     // ALICE Token decimals
-    const ALICE_DECIMALS = 6;
+    const ALICE_DECIMALS = CONFIG.ALICE_DECIMALS || 6;
     
-    // ============ END CONFIGURATION ============
+    // Polling interval
+    const POLL_INTERVAL = CONFIG.POLL_INTERVAL || 15000;
+    
+    // Toast duration
+    const TOAST_DURATION = CONFIG.TOAST_DURATION || 4000;
 
-    // Contract ABI (minimal)
+    // Contract ABI (minimal for our needs)
     const RAFFLE_ABI = [
       "function paused() view returns (bool)",
       "function currentRaffleId() view returns (uint256)",
@@ -483,9 +614,11 @@
       "function getTicketCount(uint256 raffleId) view returns (uint256)",
       "function calculateWinnerPrize(uint256 raffleId) view returns (uint256)",
       "function claimWinnerReward(uint256 raffleId)",
+      "function getWinner(uint256 raffleId) view returns (address)",
     ];
 
-    // Helpers
+    // ============ Helper Functions ============
+
     const formatAlice = (amount) => {
       if (!amount) return '0';
       return ethers.utils.formatUnits(amount, ALICE_DECIMALS);
@@ -496,8 +629,11 @@
       return `${address.slice(0, 6)}...${address.slice(-4)}`;
     };
 
-    // Main App
+    // ============ Main App Component ============
+
     function App() {
+      // State
+      const [web3auth, setWeb3auth] = useState(null);
       const [provider, setProvider] = useState(null);
       const [signer, setSigner] = useState(null);
       const [userAddress, setUserAddress] = useState(null);
@@ -511,61 +647,63 @@
       const [isActive, setIsActive] = useState(false);
       const [claiming, setClaiming] = useState(false);
 
-      // Initialize read-only provider
+      // Initialize Web3Auth
       useEffect(() => {
         const init = async () => {
           try {
-            const readProvider = new ethers.providers.JsonRpcProvider(RPC_URL);
-            setProvider(readProvider);
-            
-            const raffleContract = new ethers.Contract(
-              RAFFLE_CONTRACT_ADDRESS,
-              RAFFLE_ABI,
-              readProvider
-            );
-            setContract(raffleContract);
+            const web3authInstance = new window.Modal.Web3Auth({
+              clientId: WEB3AUTH_CLIENT_ID,
+              web3AuthNetwork: WEB3AUTH_NETWORK,
+              chainConfig: {
+                chainNamespace: CHAIN_CONFIG.chainNamespace,
+                chainId: CHAIN_CONFIG.chainId,
+                rpcTarget: CHAIN_CONFIG.rpcTarget,
+                displayName: CHAIN_CONFIG.displayName,
+                blockExplorerUrl: CHAIN_CONFIG.blockExplorer,
+                ticker: CHAIN_CONFIG.ticker,
+                tickerName: CHAIN_CONFIG.tickerName,
+              },
+            });
+
+            await web3authInstance.initModal();
+            setWeb3auth(web3authInstance);
+
+            // Check if already connected
+            if (web3authInstance.connected) {
+              await handleConnected(web3authInstance);
+            }
           } catch (err) {
-            console.error('Init error:', err);
-            setError('Failed to connect to network');
+            console.error('Web3Auth init error:', err);
+            // Fallback to read-only mode with default provider
+            const readOnlyProvider = new ethers.providers.JsonRpcProvider(CHAIN_CONFIG.rpcTarget);
+            setProvider(readOnlyProvider);
           }
+
           setLoading(false);
         };
+
         init();
       }, []);
 
-      // Connect wallet (MetaMask or other injected provider)
+      // Handle successful connection
+      const handleConnected = async (web3authInstance) => {
+        const web3authProvider = await web3authInstance.provider;
+        const ethersProvider = new ethers.providers.Web3Provider(web3authProvider);
+        const ethersSigner = ethersProvider.getSigner();
+        const address = await ethersSigner.getAddress();
+
+        setProvider(ethersProvider);
+        setSigner(ethersSigner);
+        setUserAddress(address);
+      };
+
+      // Connect wallet
       const connectWallet = async () => {
-        if (!window.ethereum) {
-          showToast('Please install MetaMask or another Web3 wallet', 'error');
-          return;
-        }
+        if (!web3auth) return;
 
         try {
-          const accounts = await window.ethereum.request({ 
-            method: 'eth_requestAccounts' 
-          });
-          
-          // Check network
-          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-          if (parseInt(chainId, 16) !== CHAIN_ID) {
-            showToast(`Please switch to ${CHAIN_NAME}`, 'error');
-            return;
-          }
-
-          const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-          const web3Signer = web3Provider.getSigner();
-          
-          setSigner(web3Signer);
-          setUserAddress(accounts[0]);
-          
-          // Update contract with signer
-          const signedContract = new ethers.Contract(
-            RAFFLE_CONTRACT_ADDRESS,
-            RAFFLE_ABI,
-            web3Signer
-          );
-          setContract(signedContract);
-          
+          await web3auth.connect();
+          await handleConnected(web3auth);
           showToast('Wallet connected!', 'success');
         } catch (err) {
           console.error('Connect error:', err);
@@ -573,21 +711,31 @@
         }
       };
 
-      // Disconnect
-      const disconnectWallet = () => {
-        setSigner(null);
-        setUserAddress(null);
-        // Reset to read-only contract
-        if (provider) {
-          const readContract = new ethers.Contract(
-            RAFFLE_CONTRACT_ADDRESS,
-            RAFFLE_ABI,
-            provider
-          );
-          setContract(readContract);
+      // Disconnect wallet
+      const disconnectWallet = async () => {
+        if (!web3auth) return;
+
+        try {
+          await web3auth.logout();
+          setSigner(null);
+          setUserAddress(null);
+          showToast('Wallet disconnected', 'success');
+        } catch (err) {
+          console.error('Disconnect error:', err);
         }
-        showToast('Wallet disconnected', 'success');
       };
+
+      // Initialize contract when provider is ready
+      useEffect(() => {
+        if (!provider) return;
+
+        const raffleContract = new ethers.Contract(
+          RAFFLE_CONTRACT_ADDRESS,
+          RAFFLE_ABI,
+          signer || provider
+        );
+        setContract(raffleContract);
+      }, [provider, signer]);
 
       // Fetch raffle data
       const fetchRaffleData = useCallback(async () => {
@@ -616,7 +764,9 @@
           if (config.winner !== ethers.constants.AddressZero && !config.winnerClaimed) {
             try {
               winnerPrize = await contract.calculateWinnerPrize(raffleId);
-            } catch (e) {}
+            } catch (e) {
+              // Prize might not be calculable
+            }
           }
 
           setRaffleData({
@@ -638,15 +788,17 @@
           setError(null);
         } catch (err) {
           console.error('Fetch error:', err);
-          setError('Failed to load raffle data. Check contract address and network.');
+          setError('Failed to load raffle data. Please check the contract address and network.');
         }
       }, [contract]);
 
-      // Poll for data
+      // Fetch data on contract change and poll
       useEffect(() => {
         if (!contract) return;
+
         fetchRaffleData();
-        const interval = setInterval(fetchRaffleData, 15000);
+        const interval = setInterval(fetchRaffleData, POLL_INTERVAL);
+
         return () => clearInterval(interval);
       }, [contract, fetchRaffleData]);
 
@@ -668,18 +820,17 @@
         setClaiming(false);
       };
 
-      // Toast
+      // Toast notification
       const showToast = (message, type) => {
         setToast({ message, type });
-        setTimeout(() => setToast(null), 4000);
+        setTimeout(() => setToast(null), TOAST_DURATION);
       };
 
-      // Check if user is winner
+      // Check if current user is winner
       const isUserWinner = userAddress && raffleData?.winner && 
         userAddress.toLowerCase() === raffleData.winner.toLowerCase();
 
-      const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-
+      // Render
       return (
         <>
           <header className="header">
@@ -718,9 +869,9 @@
                 </div>
               </div>
             ) : isActive ? (
-              /* STATE B: Raffle Active */
+              // STATE B: Raffle Active
               <>
-                <div className="status-badge active">
+                <div className={`status-badge active`}>
                   <span className="status-dot"></span>
                   Raffle Active
                 </div>
@@ -767,9 +918,9 @@
                 </div>
               </>
             ) : (
-              /* STATE A: Raffle Inactive */
+              // STATE A: Raffle Inactive
               <>
-                <div className="status-badge inactive">
+                <div className={`status-badge inactive`}>
                   <span className="status-dot"></span>
                   Raffle Ended
                 </div>
@@ -778,7 +929,7 @@
                   <div className="raffle-id">Raffle #{raffleData?.raffleId}</div>
                   <h2 className="card-title">Previous Raffle</h2>
 
-                  {raffleData?.winner && raffleData.winner !== ZERO_ADDRESS ? (
+                  {raffleData?.winner && raffleData.winner !== ethers.constants.AddressZero ? (
                     <>
                       <div className="winner-section">
                         <div className="winner-label">🏆 Winner</div>
@@ -839,7 +990,7 @@
           </main>
 
           <footer className="footer">
-            <p>Powered by Chainlink VRF • {CHAIN_NAME}</p>
+            <p>Powered by Chainlink VRF • Built on {CHAIN_CONFIG.displayName}</p>
           </footer>
 
           {toast && (
@@ -851,7 +1002,7 @@
       );
     }
 
-    // Mount
+    // Mount App
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>

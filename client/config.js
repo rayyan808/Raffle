@@ -5,27 +5,16 @@
  */
 
 const CONFIG = {
-  // ============ Contract Configuration ============
-  
-  // Your deployed Raffle contract address
-  RAFFLE_CONTRACT_ADDRESS: '0x0000000000000000000000000000000000000000',
-  
-  // ALICE Token decimals
+  RAFFLE_CONTRACT_ADDRESS: '0x2688184E2bBde09b7D22f0691f0D4ebbD3b39b1C',
+  ACTIVE_NETWORK: 'sepolia',
   ALICE_DECIMALS: 6,
-
-  // ============ Web3Auth Configuration ============
-  
   // Get your client ID from https://dashboard.web3auth.io
-  WEB3AUTH_CLIENT_ID: 'YOUR_WEB3AUTH_CLIENT_ID',
+  WEB3AUTH_CLIENT_ID: 'BCjQ33Sgyu2Ud25FasdXWMTBWTGyb82RKcuyPPe4HX9v8L_FLPJ9KYkKT-nxAiRhsnyJ8DwQDyV_71-IYs5Wef0',
   
   // Web3Auth network: 'sapphire_devnet' for testing, 'sapphire_mainnet' for production
   WEB3AUTH_NETWORK: 'sapphire_devnet',
 
-  // ============ Network Configuration ============
-  
-  // Supported networks configuration
   NETWORKS: {
-    // Ethereum Mainnet
     mainnet: {
       chainId: '0x1',
       chainNamespace: 'eip155',
@@ -35,8 +24,6 @@ const CONFIG = {
       ticker: 'ETH',
       tickerName: 'Ethereum',
     },
-    
-    // Ethereum Sepolia Testnet
     sepolia: {
       chainId: '0xaa36a7',
       chainNamespace: 'eip155',
@@ -46,8 +33,6 @@ const CONFIG = {
       ticker: 'ETH',
       tickerName: 'Ethereum',
     },
-    
-    // BSC Mainnet
     bsc: {
       chainId: '0x38',
       chainNamespace: 'eip155',
@@ -57,8 +42,6 @@ const CONFIG = {
       ticker: 'BNB',
       tickerName: 'BNB',
     },
-    
-    // BSC Testnet
     bscTestnet: {
       chainId: '0x61',
       chainNamespace: 'eip155',
@@ -69,20 +52,10 @@ const CONFIG = {
       tickerName: 'Test BNB',
     },
   },
-  
-  // Active network - change this to switch networks
-  ACTIVE_NETWORK: 'sepolia',
-
-  // ============ UI Configuration ============
-  
-  // Polling interval for contract data (milliseconds)
   POLL_INTERVAL: 15000,
-  
-  // Toast notification duration (milliseconds)
   TOAST_DURATION: 4000,
 };
 
-// Export for use in dApp
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = CONFIG;
 } else {
