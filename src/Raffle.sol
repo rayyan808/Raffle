@@ -7,15 +7,17 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 /// @title A Raffle System that rewards ALICE and in-game NFTs
 /// @author Rayyan Jafri rayyan808@gmail.com
 /// @notice This contract implements a fair raffle system using Chainlink VRF for randomness
 /// @custom:security-contact rayyan808@gmail.com
 
-contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
+contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus, AccessControl {
     // ============ Constants ============
-
+    /// @notice Raffle Admin role
+    bytes32 public constant RAFFLE_ADMIN_ROLE = keccak256("RAFFLE_ADMIN_ROLE");
     /// @notice Basis points denominator (100% = 10000)
     uint256 private constant BASIS_POINTS = 10000;
 
@@ -28,7 +30,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
     // ============ Immutables ============
 
     /// @notice The ALICE ERC20 token
-    IERC20 public immutable aliceToken;
+    IERC20 public immutable ALICE_TOKEN;
 
     // ============ VRF Configuration ============
 
@@ -53,7 +55,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
     uint256 public currentRaffleId;
 
     /// @notice Tracks if we're waiting for VRF response
-    bool public awaitingVRF;
+    bool public awaitingVrf;
 
     /// @notice Pending VRF request ID
     uint256 private pendingRequestId;
@@ -105,7 +107,15 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
     error NothingToWithdraw();
     error InvalidAddress();
     error TransferFailed();
+    error NotAdmin();
 
+    // ========= Modifiers ============
+    modifier onlyAdmin() {
+        if (!hasRole(RAFFLE_ADMIN_ROLE, msg.sender)) {
+            revert NotAdmin();
+        }
+        _;
+    }
     // ============ Events ============
 
     /// @notice Emitted when a user deposits and receives tickets
@@ -192,21 +202,21 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
         if (_aliceToken == address(0)) revert InvalidAddress();
         if (_houseFee > MAX_HOUSE_FEE) revert InvalidFee();
 
-        aliceToken = IERC20(_aliceToken);
+        ALICE_TOKEN = IERC20(_aliceToken);
         subscriptionId = _subscriptionId;
         keyHash = _keyHash;
         callbackGasLimit = _callbackGasLimit;
         requestConfirmations = _requestConfirmations;
         houseFee = _houseFee;
-
+        _grantRole(RAFFLE_ADMIN_ROLE, msg.sender);
         // Start paused, no active raffle
         _pause();
     }
 
     // ============ User Functions ============
-
     /// @notice Deposit ALICE tokens to receive raffle tickets
     /// @param amount The amount of ALICE to deposit (must be multiple of ticket price)
+
     function deposit(uint256 amount) external whenNotPaused nonReentrant {
         RaffleConfig storage raffle = raffles[currentRaffleId];
 
@@ -218,7 +228,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
         uint256 numberOfTickets = amount / ticketPrice;
 
         // Transfer tokens
-        bool success = aliceToken.transferFrom(msg.sender, address(this), amount);
+        bool success = ALICE_TOKEN.transferFrom(msg.sender, address(this), amount);
         if (!success) revert TransferFailed();
 
         // Update prize pool
@@ -268,7 +278,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
         accumulatedHouseFees += houseCut;
 
         // Transfer prize to winner
-        bool success = aliceToken.transfer(msg.sender, winnerPrize);
+        bool success = ALICE_TOKEN.transfer(msg.sender, winnerPrize);
         if (!success) revert TransferFailed();
 
         emit WinnerRewardClaimed(msg.sender, raffleId, raffle.winnerReward, raffle.winnerRewardAmount, winnerPrize);
@@ -283,7 +293,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
         RaffleConfig storage raffle = raffles[currentRaffleId];
         if (!raffle.isActive) revert RaffleNotActive();
 
-        bool success = aliceToken.transferFrom(msg.sender, address(this), amount);
+        bool success = ALICE_TOKEN.transferFrom(msg.sender, address(this), amount);
         if (!success) revert TransferFailed();
 
         raffle.prizePool += amount;
@@ -305,8 +315,8 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
         uint8 _genericAmount,
         string calldata _winnerReward,
         uint8 _winnerAmount
-    ) external onlyOwner {
-        if (awaitingVRF) revert VRFRequestPending();
+    ) external onlyAdmin {
+        if (awaitingVrf) revert VRFRequestPending();
         if (_ticketPrice == 0) revert InvalidTicketPrice();
 
         // Increment raffle ID
@@ -328,7 +338,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
     }
 
     /// @notice Stop the current raffle and request VRF for winner selection
-    function stopRaffle() external onlyOwner whenNotPaused {
+    function stopRaffle() external onlyAdmin whenNotPaused {
         RaffleConfig storage raffle = raffles[currentRaffleId];
 
         if (!raffle.isActive) revert RaffleNotActive();
@@ -340,7 +350,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
         raffle.isActive = false;
 
         // Set VRF pending flag
-        awaitingVRF = true;
+        awaitingVrf = true;
 
         // Request random number
         pendingRequestId = s_vrfCoordinator.requestRandomWords(
@@ -376,7 +386,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
     /// @param _keyHash New key hash
     /// @param _callbackGasLimit New callback gas limit
     /// @param _requestConfirmations New request confirmations
-    function updateVRFConfig(
+    function updateVrfConfig(
         uint256 _subscriptionId,
         bytes32 _keyHash,
         uint32 _callbackGasLimit,
@@ -400,7 +410,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
 
         accumulatedHouseFees = 0;
 
-        bool success = aliceToken.transfer(recipient, amount);
+        bool success = ALICE_TOKEN.transfer(recipient, amount);
         if (!success) revert TransferFailed();
 
         emit HouseFeesWithdrawn(recipient, amount);
@@ -408,7 +418,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
 
     /// @notice Emergency pause (only when not waiting for VRF)
     function emergencyPause() external onlyOwner {
-        if (awaitingVRF) revert VRFRequestPending();
+        if (awaitingVrf) revert VRFRequestPending();
         _pause();
     }
 
@@ -422,7 +432,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
         if (requestId != pendingRequestId) revert InvalidVRFRequest();
 
         // Clear VRF pending flag
-        awaitingVRF = false;
+        awaitingVrf = false;
 
         address[] storage tickets = raffleTickets[currentRaffleId];
         uint256 winnerIndex = randomWords[0] % tickets.length;
@@ -478,11 +488,18 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus {
     function getTicketPriceFormatted(uint256 raffleId) external view returns (uint256) {
         return raffles[raffleId].ticketPrice / (10 ** ALICE_DECIMALS);
     }
+    /// @notice Assign admin role to an address
+    /// @param account The address to assign admin rights to
+
+    function assignAdminRole(address account) public onlyOwner {
+        _grantRole(RAFFLE_ADMIN_ROLE, account);
+    }
 
     /// @notice Get user's tickets for a specific raffle
     /// @param raffleId The raffle ID
     /// @param user The user's address
     /// @return The number of tickets the user has
+
     function getUserTickets(uint256 raffleId, address user) external view returns (uint256) {
         return userTicketCount[raffleId][user];
     }

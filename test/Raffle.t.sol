@@ -3,13 +3,11 @@
 pragma solidity ^0.8.19;
 
 import {Test} from "forge-std/Test.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Raffle} from "../src/Raffle.sol";
 import {AliceToken} from "./AliceToken.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {console} from "forge-std/console.sol";
 
 contract RaffleTest is Test {
     Raffle public raffleContract;
@@ -66,11 +64,19 @@ contract RaffleTest is Test {
 
         vm.stopPrank();
     }
+    // ========= Fuzz Test (Stateless)
 
+    function test_numberOfTickets(uint256 tokenAmount, uint256 ticketPrice) internal {
+        //Invariants = tokenAmount, ticketPrice
+        vm.startPrank(owner);
+        aliceToken.mint(user, tokenAmount);
+        raffleContract.startRaffle(ticketPrice, "generic_reward", 1, "winner_reward", 1);
+        vm.startPrank(user);
+    }
     // ============ Constructor Tests ============
 
     function test_constructor_setsCorrectValues() public view {
-        assertEq(address(raffleContract.aliceToken()), address(aliceToken));
+        assertEq(address(raffleContract.ALICE_TOKEN()), address(aliceToken));
         assertEq(raffleContract.subscriptionId(), subscriptionId);
         assertEq(raffleContract.keyHash(), KEY_HASH);
         assertEq(raffleContract.callbackGasLimit(), CALLBACK_GAS_LIMIT);
@@ -161,7 +167,7 @@ contract RaffleTest is Test {
         raffleContract.stopRaffle();
 
         assertTrue(raffleContract.paused());
-        assertTrue(raffleContract.awaitingVRF());
+        assertTrue(raffleContract.awaitingVrf());
     }
 
     function test_stopRaffle_preventsDepositsAfterStop() public {
@@ -262,7 +268,7 @@ contract RaffleTest is Test {
 
         address winner = raffleContract.getWinner(1);
         assertEq(winner, user);
-        assertFalse(raffleContract.awaitingVRF());
+        assertFalse(raffleContract.awaitingVrf());
     }
 
     function test_winnerSelection_emitsEvent() public {
@@ -468,7 +474,7 @@ contract RaffleTest is Test {
         uint16 newConfirmations = 5;
 
         vm.prank(owner);
-        raffleContract.updateVRFConfig(subscriptionId, newKeyHash, newGasLimit, newConfirmations);
+        raffleContract.updateVrfConfig(subscriptionId, newKeyHash, newGasLimit, newConfirmations);
 
         assertEq(raffleContract.keyHash(), newKeyHash);
         assertEq(raffleContract.callbackGasLimit(), newGasLimit);
@@ -589,10 +595,22 @@ contract RaffleTest is Test {
 
         assertEq(raffleContract.getTicketPriceFormatted(1), 10); // 10 ALICE without decimals
     }
+    //====== Access Control
 
+    function test_onlyAdminCanCallFunctions() public {
+        vm.prank(user);
+        vm.expectRevert();
+        raffleContract.startRaffle(1, "part_reward", 1, "winner_reward", 1);
+
+        vm.prank(owner);
+        raffleContract.assignAdminRole(user);
+        vm.startPrank(user);
+        raffleContract.startRaffle(1, "part_reward", 1, "winner_reward", 1);
+    }
     /**
      * Internal Testing Helper Functions
      */
+
     function _mintAndApprove(address to, uint256 amount) internal {
         vm.startPrank(to);
         aliceToken.mint(to, amount);

@@ -763,7 +763,7 @@ const NETWORKS: Record<string, NetworkConfig> = {
   },
   sepolia: {
     name: 'Ethereum Sepolia',
-    rpcUrl: 'https://rpc.sepolia.org',
+    rpcUrl: 'https://gateway.tenderly.co/public/sepolia',
     chainId: 11155111,
     explorerUrl: 'https://sepolia.etherscan.io',
   },

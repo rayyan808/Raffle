@@ -124,6 +124,108 @@
       color: var(--color-accent-primary);
     }
 
+    /* Network Switcher */
+    .network-switcher {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.3rem;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+    }
+
+    .network-btn {
+      font-family: var(--font-display);
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: none;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .network-btn:hover {
+      color: var(--color-text-primary);
+    }
+
+    .network-btn.active {
+      color: var(--color-text-primary);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .network-btn.active.sepolia {
+      color: var(--color-accent-primary);
+      background: rgba(0, 240, 255, 0.15);
+      box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    .network-btn.active.bsc {
+      color: #f0b90b;
+      background: rgba(240, 185, 11, 0.15);
+      box-shadow: inset 0 0 10px rgba(240, 185, 11, 0.2);
+    }
+
+    .network-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+    }
+
+    .network-icon.sepolia {
+      background: linear-gradient(135deg, #627eea, #3c4d99);
+    }
+
+    .network-icon.bsc {
+      background: linear-gradient(135deg, #f0b90b, #c99a0a);
+    }
+
+    .network-indicator {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0.5rem 1.5rem;
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-radius: 0 0 8px 8px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      animation: slideDown 0.3s ease;
+    }
+
+    .network-indicator.sepolia {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(0, 136, 170, 0.2));
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-top: none;
+      color: var(--color-accent-primary);
+    }
+
+    .network-indicator.bsc {
+      background: linear-gradient(135deg, rgba(240, 185, 11, 0.2), rgba(200, 154, 10, 0.2));
+      border: 1px solid rgba(240, 185, 11, 0.3);
+      border-top: none;
+      color: #f0b90b;
+    }
+
+    @keyframes slideDown {
+      from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+      to { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+
     .connect-btn {
       font-family: var(--font-display);
       font-size: 0.75rem;
@@ -499,12 +601,24 @@
       border-top: 1px solid var(--color-border);
     }
 
+    .contract-address-link {
+      color: var(--color-accent-primary);
+      text-decoration: none;
+      transition: color 0.3s;
+    }
+
+    .contract-address-link:hover {
+      color: var(--color-text-primary);
+      text-decoration: underline;
+    }
+
     @media (max-width: 768px) {
       .header { flex-direction: column; gap: 1rem; }
       .header-left { flex-direction: column; align-items: flex-start; }
       .grid { grid-template-columns: 1fr; }
       .form-row { grid-template-columns: 1fr; }
       .status-bar { flex-direction: column; }
+      .network-switcher { width: 100%; justify-content: center; }
     }
   </style>
 </head>
@@ -527,13 +641,64 @@
   <script type="text/babel">
     const { useState, useEffect, useCallback } = React;
 
-    // ============ CONFIGURATION - MUST MATCH index.html ============
+    // ============ MULTI-NETWORK CONFIGURATION ============
     
-    const RAFFLE_CONTRACT_ADDRESS = '0x2688184E2bBde09b7D22f0691f0D4ebbD3b39b1C';
-    const RPC_URL = 'https://rpc.sepolia.org';
-    const CHAIN_ID = 11155111;
-    const CHAIN_NAME = 'Sepolia Testnet';
+    const NETWORK_CONFIG = {
+    mainnet: {
+      chainId: 1,
+      chainIdHex: '0x1',
+      chainNamespace: 'eip155',
+      rpcTarget: 'https://eth.llamarpc.com',
+      displayName: 'Ethereum Mainnet',
+      blockExplorer: 'https://etherscan.io',
+      ticker: 'ETH',
+      tickerName: 'Ethereum',
+    },
+      sepolia: {
+        name: 'Sepolia Testnet',
+        shortName: 'Sepolia',
+        chainId: 11155111,
+        chainIdHex: '0xaa36a7',
+         rpcUrl: 'https://gateway.tenderly.co/public/sepolia',
+        blockExplorer: 'https://sepolia.etherscan.io',
+        contractAddress: '0xDD5e2Bd93B01b842e02ED1dc5933885C7C3f84E1',
+        nativeCurrency: {
+          name: 'Ethereum',
+          symbol: 'ETH',
+          decimals: 18,
+        },
+      },
+          bscTestnet: {
+      chainId: 97,
+      chainIdHex: '0x61',
+      chainNamespace: 'eip155',
+      rpcTarget: 'https://data-seed-prebsc-1-s1.binance.org:8545',
+      displayName: 'BSC Testnet',
+      blockExplorer: 'https://testnet.bscscan.com',
+      ticker: 'tBNB',
+      tickerName: 'Test BNB',
+      contractAddress: '0x2688184E2bBde09b7D22f0691f0D4ebbD3b39b1C'
+    },
+      bsc: {
+        name: 'BNB Smart Chain',
+        shortName: 'BSC',
+        chainId: 56,
+        chainIdHex: '0x38',
+        rpcUrl: 'https://bsc-dataseed.binance.org',
+        blockExplorer: 'https://bscscan.com',
+        contractAddress: '0x0000000000000000000000000000000000000000', // TODO: Replace with actual BSC contract
+        nativeCurrency: {
+          name: 'BNB',
+          symbol: 'BNB',
+          decimals: 18,
+        },
+      },
+    };
+
     const ALICE_DECIMALS = 6;
+    
+    // Raffle Admin Role - keccak256("RAFFLE_ADMIN_ROLE")
+    const RAFFLE_ADMIN_ROLE = '0x5b4b8088d200445bfb44acef5ae68c0906d30def45a3f841c2e4c6f0a2b1e914';
     
     // ============ END CONFIGURATION ============
 
@@ -542,8 +707,9 @@
       // Read functions
       "function paused() view returns (bool)",
       "function owner() view returns (address)",
+      "function hasRole(bytes32 role, address account) view returns (bool)",
       "function currentRaffleId() view returns (uint256)",
-      "function awaitingVRF() view returns (bool)",
+      "function awaitingVrf() view returns (bool)",
       "function houseFee() view returns (uint256)",
       "function accumulatedHouseFees() view returns (uint256)",
       "function subscriptionId() view returns (uint256)",
@@ -552,7 +718,7 @@
       "function requestConfirmations() view returns (uint16)",
       "function getRaffleConfig(uint256 raffleId) view returns (tuple(uint256 ticketPrice, string genericReward, uint8 genericRewardAmount, string winnerReward, uint8 winnerRewardAmount, uint256 prizePool, address winner, bool winnerClaimed, bool isActive))",
       "function getTicketCount(uint256 raffleId) view returns (uint256)",
-      "function aliceToken() view returns (address)",
+      "function ALICE_TOKEN() view returns (address)",
       
       // Write functions
       "function startRaffle(uint256 _ticketPrice, string _genericReward, uint8 _genericAmount, string _winnerReward, uint8 _winnerAmount)",
@@ -589,6 +755,7 @@
 
     // Main Admin App
     function AdminApp() {
+      const [activeNetwork, setActiveNetwork] = useState('sepolia');
       const [provider, setProvider] = useState(null);
       const [signer, setSigner] = useState(null);
       const [userAddress, setUserAddress] = useState(null);
@@ -597,12 +764,13 @@
       
       const [loading, setLoading] = useState(true);
       const [toast, setToast] = useState(null);
+      const [networkMismatch, setNetworkMismatch] = useState(false);
       
       // Contract state
       const [contractState, setContractState] = useState({
         owner: null,
         paused: true,
-        awaitingVRF: false,
+        awaitingVrf: false,
         currentRaffleId: 0,
         houseFee: 0,
         accumulatedFees: 0,
@@ -611,7 +779,7 @@
         ticketCount: 0,
       });
 
-      const [isOwner, setIsOwner] = useState(false);
+      const [isAdmin, setIsAdmin] = useState(false);
 
       // Form states
       const [startRaffleForm, setStartRaffleForm] = useState({
@@ -637,15 +805,18 @@
       // Loading states for buttons
       const [loadingAction, setLoadingAction] = useState(null);
 
-      // Initialize
+      // Get current network config
+      const networkConfig = NETWORK_CONFIG[activeNetwork];
+
+      // Initialize read-only provider for active network
       useEffect(() => {
         const init = async () => {
           try {
-            const readProvider = new ethers.providers.JsonRpcProvider(RPC_URL);
+            const readProvider = new ethers.providers.JsonRpcProvider(networkConfig.rpcUrl);
             setProvider(readProvider);
             
             const raffleContract = new ethers.Contract(
-              RAFFLE_CONTRACT_ADDRESS,
+              networkConfig.contractAddress,
               RAFFLE_ABI,
               readProvider
             );
@@ -657,7 +828,73 @@
           setLoading(false);
         };
         init();
-      }, []);
+      }, [activeNetwork]);
+
+      // Switch network
+      const switchNetwork = async (newNetwork) => {
+        if (newNetwork === activeNetwork) return;
+        
+        setActiveNetwork(newNetwork);
+        setLoading(true);
+        
+        // Reset wallet connection when switching networks
+        if (signer) {
+          setSigner(null);
+          setUserAddress(null);
+          setIsAdmin(false);
+          setAliceContract(null);
+        }
+        
+        // Reset contract state
+        setContractState({
+          owner: null,
+          paused: true,
+          awaitingVrf: false,
+          currentRaffleId: 0,
+          houseFee: 0,
+          accumulatedFees: 0,
+          vrfConfig: {},
+          currentRaffle: null,
+          ticketCount: 0,
+        });
+        
+        showToast(`Switched to ${NETWORK_CONFIG[newNetwork].name}`, 'success');
+      };
+
+      // Request network switch in wallet
+      const requestWalletNetworkSwitch = async () => {
+        if (!window.ethereum) return false;
+        
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: networkConfig.chainIdHex }],
+          });
+          return true;
+        } catch (switchError) {
+          // Network not added to wallet, try to add it
+          if (switchError.code === 4902) {
+            try {
+              await window.ethereum.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: networkConfig.chainIdHex,
+                  chainName: networkConfig.name,
+                  nativeCurrency: networkConfig.nativeCurrency,
+                  rpcUrls: [networkConfig.rpcUrl],
+                  blockExplorerUrls: [networkConfig.blockExplorer],
+                }],
+              });
+              return true;
+            } catch (addError) {
+              console.error('Failed to add network:', addError);
+              return false;
+            }
+          }
+          console.error('Failed to switch network:', switchError);
+          return false;
+        }
+      };
 
       // Connect wallet
       const connectWallet = async () => {
@@ -672,11 +909,19 @@
           });
           
           const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-          if (parseInt(chainId, 16) !== CHAIN_ID) {
-            showToast(`Please switch to ${CHAIN_NAME}`, 'error');
-            return;
+          const currentChainId = parseInt(chainId, 16);
+          
+          if (currentChainId !== networkConfig.chainId) {
+            showToast(`Switching to ${networkConfig.name}...`, 'warning');
+            const switched = await requestWalletNetworkSwitch();
+            if (!switched) {
+              showToast(`Please switch to ${networkConfig.name} manually`, 'error');
+              setNetworkMismatch(true);
+              return;
+            }
           }
-
+          
+          setNetworkMismatch(false);
           const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
           const web3Signer = web3Provider.getSigner();
           
@@ -684,16 +929,20 @@
           setUserAddress(accounts[0]);
           
           const signedContract = new ethers.Contract(
-            RAFFLE_CONTRACT_ADDRESS,
+            networkConfig.contractAddress,
             RAFFLE_ABI,
             web3Signer
           );
           setContract(signedContract);
 
           // Get ALICE token contract
-          const aliceAddress = await signedContract.aliceToken();
-          const alice = new ethers.Contract(aliceAddress, ERC20_ABI, web3Signer);
-          setAliceContract(alice);
+          try {
+            const aliceAddress = await signedContract.ALICE_TOKEN();
+            const alice = new ethers.Contract(aliceAddress, ERC20_ABI, web3Signer);
+            setAliceContract(alice);
+          } catch (err) {
+            console.error('Failed to get ALICE token:', err);
+          }
           
           showToast('Wallet connected!', 'success');
         } catch (err) {
@@ -702,14 +951,48 @@
         }
       };
 
+      // Listen for account/chain changes
+      useEffect(() => {
+        if (!window.ethereum) return;
+        
+        const handleAccountsChanged = (accounts) => {
+          if (accounts.length === 0) {
+            disconnectWallet();
+          } else {
+            setUserAddress(accounts[0]);
+          }
+        };
+        
+        const handleChainChanged = (chainId) => {
+          const newChainId = parseInt(chainId, 16);
+          if (newChainId !== networkConfig.chainId) {
+            setNetworkMismatch(true);
+            showToast(`Please switch to ${networkConfig.name}`, 'warning');
+          } else {
+            setNetworkMismatch(false);
+            // Reconnect with new chain
+            connectWallet();
+          }
+        };
+        
+        window.ethereum.on('accountsChanged', handleAccountsChanged);
+        window.ethereum.on('chainChanged', handleChainChanged);
+        
+        return () => {
+          window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+          window.ethereum.removeListener('chainChanged', handleChainChanged);
+        };
+      }, [networkConfig.chainId]);
+
       // Disconnect
       const disconnectWallet = () => {
         setSigner(null);
         setUserAddress(null);
-        setIsOwner(false);
+        setIsAdmin(false);
+        setNetworkMismatch(false);
         if (provider) {
           const readContract = new ethers.Contract(
-            RAFFLE_CONTRACT_ADDRESS,
+            networkConfig.contractAddress,
             RAFFLE_ABI,
             provider
           );
@@ -726,7 +1009,7 @@
           const [
             owner,
             paused,
-            awaitingVRF,
+            awaitingVrf,
             currentRaffleId,
             houseFee,
             accumulatedFees,
@@ -737,7 +1020,7 @@
           ] = await Promise.all([
             contract.owner(),
             contract.paused(),
-            contract.awaitingVRF(),
+            contract.awaitingVrf(),
             contract.currentRaffleId(),
             contract.houseFee(),
             contract.accumulatedHouseFees(),
@@ -760,7 +1043,7 @@
           setContractState({
             owner,
             paused,
-            awaitingVRF,
+            awaitingVrf,
             currentRaffleId: currentRaffleId.toNumber(),
             houseFee: houseFee.toNumber(),
             accumulatedFees,
@@ -771,7 +1054,7 @@
               requestConfirmations,
             },
             currentRaffle,
-            ticketCount: ticketCount.toNumber(),
+            ticketCount: ticketCount,
           });
 
           // Update VRF form with current values
@@ -782,9 +1065,16 @@
             requestConfirmations: requestConfirmations.toString(),
           });
 
-          // Check if user is owner
+          // Check if user has admin role
           if (userAddress) {
-            setIsOwner(userAddress.toLowerCase() === owner.toLowerCase());
+            try {
+              const hasAdminRole = await contract.hasRole(RAFFLE_ADMIN_ROLE, userAddress);
+              setIsAdmin(hasAdminRole);
+            } catch (err) {
+              console.error('Failed to check admin role:', err);
+              // Fallback to owner check if hasRole fails
+              setIsAdmin(userAddress.toLowerCase() === owner.toLowerCase());
+            }
           }
         } catch (err) {
           console.error('Fetch error:', err);
@@ -874,10 +1164,10 @@
         const amount = parseAlice(injectAmount);
         
         // Check allowance
-        const allowance = await aliceContract.allowance(userAddress, RAFFLE_CONTRACT_ADDRESS);
+        const allowance = await aliceContract.allowance(userAddress, networkConfig.contractAddress);
         if (allowance.lt(amount)) {
           showToast('Approving tokens...', 'warning');
-          const approveTx = await aliceContract.approve(RAFFLE_CONTRACT_ADDRESS, amount);
+          const approveTx = await aliceContract.approve(networkConfig.contractAddress, amount);
           await approveTx.wait();
         }
 
@@ -920,16 +1210,55 @@
       };
 
       const isLoading = (action) => loadingAction === action;
-      const canExecute = signer && isOwner;
+      const canExecute = signer && isAdmin && !networkMismatch;
 
       return (
         <>
+          {/* Network Indicator */}
+          <div className={`network-indicator ${activeNetwork}`}>
+            <span className={`network-icon ${activeNetwork}`}></span>
+            {networkConfig.name}
+          </div>
+
           <header className="header">
             <div className="header-left">
               <a href="index.html" className="logo">ALICE RAFFLE</a>
               <span className="admin-badge">Admin Panel</span>
               <a href="index.html" className="back-link">← Back to Main</a>
             </div>
+            
+            {/* Network Switcher */}
+            <div className="network-switcher">
+              <button 
+                className={`network-btn sepolia ${activeNetwork === 'sepolia' ? 'active' : ''}`}
+                onClick={() => switchNetwork('sepolia')}
+              >
+                <span className="network-icon sepolia"></span>
+                Sepolia
+              </button>
+               <button 
+                className={`network-btn bscTestnet ${activeNetwork === 'bscTestnet' ? 'active' : ''}`}
+                onClick={() => switchNetwork('bscTestnet')}
+              >
+                <span className="network-icon bscTestnet"></span>
+                BSC Testnet
+              </button>
+              <button 
+                className={`network-btn bsc ${activeNetwork === 'bsc' ? 'active' : ''}`}
+                onClick={() => switchNetwork('bsc')}
+              >
+                <span className="network-icon bsc"></span>
+                BSC
+              </button>
+               <button 
+                className={`network-btn eth ${activeNetwork === 'eth' ? 'active' : ''}`}
+                onClick={() => switchNetwork('eth')}
+              >
+                <span className="network-icon eth"></span>
+                ETH
+              </button>
+            </div>
+            
             <div className="wallet-info">
               {userAddress ? (
                 <>
@@ -937,9 +1266,13 @@
                     Connected
                   </button>
                   <div className="wallet-address">{shortenAddress(userAddress)}</div>
-                  <div className={`owner-status ${isOwner ? 'is-owner' : 'not-owner'}`}>
-                    {isOwner ? '✓ Contract Owner' : '✗ Not Owner'}
-                  </div>
+                  {networkMismatch ? (
+                    <div className="owner-status not-owner">⚠️ Wrong Network</div>
+                  ) : (
+                    <div className={`owner-status ${isAdmin ? 'is-owner' : 'not-owner'}`}>
+                      {isAdmin ? '✓ Raffle Admin' : '✗ Not Admin'}
+                    </div>
+                  )}
                 </>
               ) : (
                 <button className="connect-btn" onClick={connectWallet}>
@@ -953,21 +1286,34 @@
             {loading ? (
               <div className="loading-container">
                 <div className="loading-spinner"></div>
-                <div className="loading-text">Loading...</div>
+                <div className="loading-text">Loading {networkConfig.shortName}...</div>
               </div>
             ) : !userAddress ? (
               <div className="not-connected">
                 <div className="not-connected-icon">🔐</div>
                 <h2>Connect Your Wallet</h2>
-                <p>Connect your wallet to access admin functions</p>
+                <p>Connect your wallet to access admin functions on {networkConfig.name}</p>
                 <button className="btn btn-primary" onClick={connectWallet} style={{maxWidth: '300px', margin: '0 auto'}}>
                   Connect Wallet
+                </button>
+              </div>
+            ) : networkMismatch ? (
+              <div className="not-connected">
+                <div className="not-connected-icon">⚠️</div>
+                <h2>Wrong Network</h2>
+                <p>Please switch your wallet to {networkConfig.name}</p>
+                <button className="btn btn-primary" onClick={requestWalletNetworkSwitch} style={{maxWidth: '300px', margin: '0 auto'}}>
+                  Switch to {networkConfig.shortName}
                 </button>
               </div>
             ) : (
               <>
                 {/* Status Bar */}
                 <div className="status-bar">
+                  <div className="status-item">
+                    <span className="status-label">Network</span>
+                    <span className="status-value">{networkConfig.shortName}</span>
+                  </div>
                   <div className="status-item">
                     <span className="status-label">Status</span>
                     <span className={`status-value ${contractState.paused ? 'paused' : 'active'}`}>
@@ -980,8 +1326,8 @@
                   </div>
                   <div className="status-item">
                     <span className="status-label">VRF</span>
-                    <span className={`status-value ${contractState.awaitingVRF ? 'pending' : 'active'}`}>
-                      {contractState.awaitingVRF ? '⏳ Pending' : '✓ Ready'}
+                    <span className={`status-value ${contractState.awaitingVrf ? 'pending' : 'active'}`}>
+                      {contractState.awaitingVrf ? '⏳ Pending' : '✓ Ready'}
                     </span>
                   </div>
                   <div className="status-item">
@@ -1066,7 +1412,7 @@
                     <button 
                       className={`btn btn-success ${isLoading('startRaffle') ? 'loading' : ''}`}
                       onClick={handleStartRaffle}
-                      disabled={!canExecute || !contractState.paused || contractState.awaitingVRF || isLoading('startRaffle')}
+                      disabled={!canExecute || !contractState.paused || contractState.awaitingVrf || isLoading('startRaffle')}
                     >
                       {isLoading('startRaffle') ? 'Starting...' : 'Start Raffle'}
                     </button>
@@ -1131,7 +1477,7 @@
                     <button 
                       className={`btn btn-primary ${isLoading('injectCapital') ? 'loading' : ''}`}
                       onClick={handleInjectCapital}
-                      disabled={!signer || contractState.paused || isLoading('injectCapital')}
+                      disabled={!signer || contractState.paused || isLoading('injectCapital') || networkMismatch}
                     >
                       {isLoading('injectCapital') ? 'Injecting...' : 'Inject Capital'}
                     </button>
@@ -1263,7 +1609,7 @@
                     <button 
                       className={`btn btn-danger ${isLoading('emergencyPause') ? 'loading' : ''}`}
                       onClick={handleEmergencyPause}
-                      disabled={!canExecute || contractState.paused || contractState.awaitingVRF || isLoading('emergencyPause')}
+                      disabled={!canExecute || contractState.paused || contractState.awaitingVrf || isLoading('emergencyPause')}
                       style={{marginBottom: '1rem'}}
                     >
                       {isLoading('emergencyPause') ? 'Pausing...' : 'Emergency Pause'}
@@ -1295,7 +1641,12 @@
           </main>
 
           <footer className="footer">
-            Admin Panel • {CHAIN_NAME} • Contract: {shortenAddress(RAFFLE_CONTRACT_ADDRESS)}
+            Admin Panel • {networkConfig.name} • Contract: <a 
+              href={`${networkConfig.blockExplorer}/address/${networkConfig.contractAddress}`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="contract-address-link"
+            >{shortenAddress(networkConfig.contractAddress)}</a>
           </footer>
 
           {toast && (
