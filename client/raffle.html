@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raffle Contract Interface</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.9.0/ethers.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --bg-card: #16161f;
+            --bg-input: #1a1a25;
+            --border: #2a2a3a;
+            --border-focus: #6366f1;
+            --text-primary: #f0f0f5;
+            --text-secondary: #9090a0;
+            --text-muted: #606070;
+            --accent-purple: #8b5cf6;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-orange: #f59e0b;
+            --accent-cyan: #06b6d4;
+            --gradient-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+            --gradient-2: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.03;
+            z-index: 1000;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .network-select {
+            padding: 0.75rem 1.25rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .network-select:hover {
+            border-color: var(--border-focus);
+        }
+
+        .network-select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--border-focus);
+            background: var(--bg-card);
+        }
+
+        .btn-danger {
+            background: var(--accent-red);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+
+        .btn-success {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .wallet-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-red);
+        }
+
+        .status-dot.connected {
+            background: var(--accent-green);
+            box-shadow: 0 0 10px var(--accent-green);
+        }
+
+        .wallet-address {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .main-content {
+            padding: 2rem;
+        }
+
+        .config-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .config-section h3 {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 1rem;
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .config-item label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .config-item input {
+            padding: 0.75rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+        }
+
+        .config-item input:focus {
+            outline: none;
+            border-color: var(--border-focus);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .section-title::before {
+            content: '';
+            width: 4px;
+            height: 1.5rem;
+            background: var(--gradient-1);
+            border-radius: 2px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            border-color: var(--border-focus);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .card-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-read {
+            background: rgba(6, 182, 212, 0.2);
+            color: var(--accent-cyan);
+        }
+
+        .badge-write {
+            background: rgba(139, 92, 246, 0.2);
+            color: var(--accent-purple);
+        }
+
+        .badge-admin {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-orange);
+        }
+
+        .badge-owner {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        .form-group input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .result-box {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            word-break: break-all;
+            min-height: 50px;
+        }
+
+        .result-box.success {
+            border-color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .result-box.error {
+            border-color: var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+        }
+
+        .state-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .state-item {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .state-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .state-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--accent-cyan);
+            word-break: break-all;
+        }
+
+        .state-value.loading {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-secondary);
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            border-color: var(--border-focus);
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            background: var(--gradient-1);
+            border-color: transparent;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--text-muted);
+            border-top-color: var(--accent-purple);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+        }
+
+        .toast.success {
+            border-color: var(--accent-green);
+        }
+
+        .toast.error {
+            border-color: var(--accent-red);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .network-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-input);
+            border-radius: 6px;
+            font-size: 0.8rem;
+        }
+
+        .network-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+
+        .network-icon.eth {
+            background: linear-gradient(135deg, #627eea 0%, #3c3c3d 100%);
+        }
+
+        .network-icon.bsc {
+            background: linear-gradient(135deg, #f3ba2f 0%, #cd9b0b 100%);
+        }
+
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .header-controls {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .state-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="noise-overlay"></div>
+    
+    <header>
+        <div class="logo">⟁ RAFFLE INTERFACE</div>
+        <div class="header-controls">
+            <select id="networkSelect" class="network-select">
+                <option value="eth-mainnet">Ethereum Mainnet</option>
+                <option value="eth-sepolia">Ethereum Sepolia</option>
+                <option value="bsc-mainnet">BSC Mainnet</option>
+                <option value="bsc-testnet">BSC Testnet</option>
+            </select>
+            <div class="wallet-status">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="wallet-address" id="walletAddress">Not Connected</span>
+            </div>
+            <button class="btn btn-primary" id="connectBtn" onclick="connectWallet()">
+                Connect Wallet
+            </button>
+        </div>
+    </header>
+
+    <div class="main-content">
+        <!-- Configuration Section -->
+        <div class="config-section">
+            <h3>Network Configuration</h3>
+            <div class="config-grid">
+                <div class="config-item">
+                    <label>Contract Address</label>
+                    <input type="text" id="contractAddress" placeholder="0x...">
+                </div>
+                <div class="config-item">
+                    <label>RPC URL</label>
+                    <input type="text" id="rpcUrl" placeholder="https://...">
+                </div>
+                <div class="config-item">
+                    <label>ALICE Token Address</label>
+                    <input type="text" id="aliceTokenAddress" placeholder="0x...">
+                </div>
+                <div class="config-item" style="align-self: end;">
+                    <button class="btn btn-secondary" onclick="saveConfig()">Save Config</button>
+                    <button class="btn btn-primary" onclick="loadContractState()" style="margin-left: 0.5rem;">Refresh State</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contract State Section -->
+        <section class="container">
+            <h2 class="section-title">Contract State</h2>
+            <div class="state-grid">
+                <div class="state-item">
+                    <div class="state-label">Current Raffle ID</div>
+                    <div class="state-value" id="state-currentRaffleId">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">Awaiting VRF</div>
+                    <div class="state-value" id="state-awaitingVrf">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">House Fee (basis points)</div>
+                    <div class="state-value" id="state-houseFee">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">Accumulated House Fees</div>
+                    <div class="state-value" id="state-accumulatedHouseFees">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">Subscription ID</div>
+                    <div class="state-value" id="state-subscriptionId">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">Key Hash</div>
+                    <div class="state-value" id="state-keyHash">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">Callback Gas Limit</div>
+                    <div class="state-value" id="state-callbackGasLimit">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">Request Confirmations</div>
+                    <div class="state-value" id="state-requestConfirmations">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">Contract Paused</div>
+                    <div class="state-value" id="state-paused">--</div>
+                </div>
+                <div class="state-item">
+                    <div class="state-label">ALICE Token</div>
+                    <div class="state-value" id="state-aliceToken">--</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabs -->
+        <section class="container">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('read')">Read Functions</button>
+                <button class="tab" onclick="switchTab('user')">User Functions</button>
+                <button class="tab" onclick="switchTab('admin')">Admin Functions</button>
+                <button class="tab" onclick="switchTab('owner')">Owner Functions</button>
+            </div>
+
+            <!-- Read Functions Tab -->
+            <div id="tab-read" class="tab-content active">
+                <div class="grid">
+                    <!-- Get Ticket Count -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">getTicketCount</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="getTicketCount-raffleId" placeholder="1">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callGetTicketCount()">Query</button>
+                        <div class="result-box" id="result-getTicketCount">--</div>
+                    </div>
+
+                    <!-- Get Raffle Config -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">getRaffleConfig</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="getRaffleConfig-raffleId" placeholder="1">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callGetRaffleConfig()">Query</button>
+                        <div class="result-box" id="result-getRaffleConfig">--</div>
+                    </div>
+
+                    <!-- Get Winner -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">getWinner</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="getWinner-raffleId" placeholder="1">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callGetWinner()">Query</button>
+                        <div class="result-box" id="result-getWinner">--</div>
+                    </div>
+
+                    <!-- Get Prize Pool -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">getPrizePool</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="getPrizePool-raffleId" placeholder="1">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callGetPrizePool()">Query</button>
+                        <div class="result-box" id="result-getPrizePool">--</div>
+                    </div>
+
+                    <!-- Has Claimed Generic -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">hasClaimedGeneric</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="hasClaimedGeneric-raffleId" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>User Address</label>
+                            <input type="text" id="hasClaimedGeneric-user" placeholder="0x...">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callHasClaimedGeneric()">Query</button>
+                        <div class="result-box" id="result-hasClaimedGeneric">--</div>
+                    </div>
+
+                    <!-- Get Ticket Price Formatted -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">getTicketPriceFormatted</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="getTicketPriceFormatted-raffleId" placeholder="1">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callGetTicketPriceFormatted()">Query</button>
+                        <div class="result-box" id="result-getTicketPriceFormatted">--</div>
+                    </div>
+
+                    <!-- Get User Tickets -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">getUserTickets</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="getUserTickets-raffleId" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>User Address</label>
+                            <input type="text" id="getUserTickets-user" placeholder="0x...">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callGetUserTickets()">Query</button>
+                        <div class="result-box" id="result-getUserTickets">--</div>
+                    </div>
+
+                    <!-- Calculate Winner Prize -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">calculateWinnerPrize</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="calculateWinnerPrize-raffleId" placeholder="1">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callCalculateWinnerPrize()">Query</button>
+                        <div class="result-box" id="result-calculateWinnerPrize">--</div>
+                    </div>
+
+                    <!-- User Ticket Count -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">userTicketCount</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="userTicketCount-raffleId" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>User Address</label>
+                            <input type="text" id="userTicketCount-user" placeholder="0x...">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callUserTicketCount()">Query</button>
+                        <div class="result-box" id="result-userTicketCount">--</div>
+                    </div>
+
+                    <!-- Check Admin Role -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">hasRole (RAFFLE_ADMIN_ROLE)</span>
+                            <span class="card-badge badge-read">Read</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Account Address</label>
+                            <input type="text" id="hasRole-account" placeholder="0x...">
+                        </div>
+                        <button class="btn btn-secondary" onclick="callHasRole()">Query</button>
+                        <div class="result-box" id="result-hasRole">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Functions Tab -->
+            <div id="tab-user" class="tab-content">
+                <div class="grid">
+                    <!-- Deposit -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">deposit</span>
+                            <span class="card-badge badge-write">Write</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount (in wei/smallest unit)</label>
+                            <input type="text" id="deposit-amount" placeholder="1000000">
+                        </div>
+                        <button class="btn btn-primary" onclick="callDeposit()">Deposit</button>
+                        <div class="result-box" id="result-deposit">--</div>
+                    </div>
+
+                    <!-- Approve ALICE -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">Approve ALICE Token</span>
+                            <span class="card-badge badge-write">Write</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount to Approve</label>
+                            <input type="text" id="approve-amount" placeholder="1000000000000">
+                        </div>
+                        <button class="btn btn-primary" onclick="callApprove()">Approve</button>
+                        <div class="result-box" id="result-approve">--</div>
+                    </div>
+
+                    <!-- Claim Winner Reward -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">claimWinnerReward</span>
+                            <span class="card-badge badge-write">Write</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Raffle ID</label>
+                            <input type="number" id="claimWinnerReward-raffleId" placeholder="1">
+                        </div>
+                        <button class="btn btn-success" onclick="callClaimWinnerReward()">Claim Reward</button>
+                        <div class="result-box" id="result-claimWinnerReward">--</div>
+                    </div>
+
+                    <!-- Inject Capital -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">injectCapital</span>
+                            <span class="card-badge badge-write">Write</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Amount (in wei/smallest unit)</label>
+                            <input type="text" id="injectCapital-amount" placeholder="1000000">
+                        </div>
+                        <button class="btn btn-primary" onclick="callInjectCapital()">Inject Capital</button>
+                        <div class="result-box" id="result-injectCapital">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Functions Tab -->
+            <div id="tab-admin" class="tab-content">
+                <div class="grid">
+                    <!-- Start Raffle -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">startRaffle</span>
+                            <span class="card-badge badge-admin">Admin</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Ticket Price (in wei)</label>
+                            <input type="text" id="startRaffle-ticketPrice" placeholder="1000000">
+                        </div>
+                        <div class="form-group">
+                            <label>Generic Reward Name</label>
+                            <input type="text" id="startRaffle-genericReward" placeholder="COIN">
+                        </div>
+                        <div class="form-group">
+                            <label>Generic Reward Amount</label>
+                            <input type="number" id="startRaffle-genericAmount" placeholder="10">
+                        </div>
+                        <div class="form-group">
+                            <label>Winner Reward Name</label>
+                            <input type="text" id="startRaffle-winnerReward" placeholder="RARE_NFT">
+                        </div>
+                        <div class="form-group">
+                            <label>Winner Reward Amount</label>
+                            <input type="number" id="startRaffle-winnerAmount" placeholder="1">
+                        </div>
+                        <button class="btn btn-primary" onclick="callStartRaffle()">Start Raffle</button>
+                        <div class="result-box" id="result-startRaffle">--</div>
+                    </div>
+
+                    <!-- Stop Raffle -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">stopRaffle</span>
+                            <span class="card-badge badge-admin">Admin</span>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                            Stops the current raffle and requests VRF for winner selection.
+                        </p>
+                        <button class="btn btn-danger" onclick="callStopRaffle()">Stop Raffle</button>
+                        <div class="result-box" id="result-stopRaffle">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Owner Functions Tab -->
+            <div id="tab-owner" class="tab-content">
+                <div class="grid">
+                    <!-- Set House Fee -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">setHouseFee</span>
+                            <span class="card-badge badge-owner">Owner</span>
+                        </div>
+                        <div class="form-group">
+                            <label>House Fee (basis points, max 5000)</label>
+                            <input type="number" id="setHouseFee-fee" placeholder="500">
+                        </div>
+                        <button class="btn btn-primary" onclick="callSetHouseFee()">Set Fee</button>
+                        <div class="result-box" id="result-setHouseFee">--</div>
+                    </div>
+
+                    <!-- Update VRF Config -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">updateVrfConfig</span>
+                            <span class="card-badge badge-owner">Owner</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Subscription ID</label>
+                            <input type="text" id="updateVrf-subId" placeholder="123">
+                        </div>
+                        <div class="form-group">
+                            <label>Key Hash</label>
+                            <input type="text" id="updateVrf-keyHash" placeholder="0x...">
+                        </div>
+                        <div class="form-group">
+                            <label>Callback Gas Limit</label>
+                            <input type="number" id="updateVrf-gasLimit" placeholder="100000">
+                        </div>
+                        <div class="form-group">
+                            <label>Request Confirmations</label>
+                            <input type="number" id="updateVrf-confirmations" placeholder="3">
+                        </div>
+                        <button class="btn btn-primary" onclick="callUpdateVrfConfig()">Update Config</button>
+                        <div class="result-box" id="result-updateVrfConfig">--</div>
+                    </div>
+
+                    <!-- Withdraw House Fees -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">withdrawHouseFees</span>
+                            <span class="card-badge badge-owner">Owner</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Recipient Address</label>
+                            <input type="text" id="withdrawFees-recipient" placeholder="0x...">
+                        </div>
+                        <button class="btn btn-success" onclick="callWithdrawHouseFees()">Withdraw Fees</button>
+                        <div class="result-box" id="result-withdrawHouseFees">--</div>
+                    </div>
+
+                    <!-- Emergency Pause -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">emergencyPause</span>
+                            <span class="card-badge badge-owner">Owner</span>
+                        </div>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                            Emergency pause the contract (only when not waiting for VRF).
+                        </p>
+                        <button class="btn btn-danger" onclick="callEmergencyPause()">Emergency Pause</button>
+                        <div class="result-box" id="result-emergencyPause">--</div>
+                    </div>
+
+                    <!-- Assign Admin Role -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span class="card-title">assignAdminRole</span>
+                            <span class="card-badge badge-owner">Owner</span>
+                        </div>
+                        <div class="form-group">
+                            <label>Account Address</label>
+                            <input type="text" id="assignAdmin-account" placeholder="0x...">
+                        </div>
+                        <button class="btn btn-primary" onclick="callAssignAdminRole()">Assign Admin</button>
+                        <div class="result-box" id="result-assignAdminRole">--</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Contract ABI (simplified for the functions we need)
+        const RAFFLE_ABI = [
+            "function currentRaffleId() view returns (uint256)",
+            "function awaitingVrf() view returns (bool)",
+            "function houseFee() view returns (uint256)",
+            "function accumulatedHouseFees() view returns (uint256)",
+            "function subscriptionId() view returns (uint256)",
+            "function keyHash() view returns (bytes32)",
+            "function callbackGasLimit() view returns (uint32)",
+            "function requestConfirmations() view returns (uint16)",
+            "function paused() view returns (bool)",
+            "function ALICE_TOKEN() view returns (address)",
+            "function RAFFLE_ADMIN_ROLE() view returns (bytes32)",
+            "function getTicketCount(uint256 raffleId) view returns (uint256)",
+            "function getRaffleConfig(uint256 raffleId) view returns (tuple(uint256 ticketPrice, string genericReward, uint8 genericRewardAmount, string winnerReward, uint8 winnerRewardAmount, uint256 prizePool, address winner, bool winnerClaimed, bool isActive))",
+            "function getWinner(uint256 raffleId) view returns (address)",
+            "function getPrizePool(uint256 raffleId) view returns (uint256)",
+            "function hasClaimedGeneric(uint256 raffleId, address user) view returns (bool)",
+            "function getTicketPriceFormatted(uint256 raffleId) view returns (uint256)",
+            "function getUserTickets(uint256 raffleId, address user) view returns (uint256)",
+            "function calculateWinnerPrize(uint256 raffleId) view returns (uint256)",
+            "function userTicketCount(uint256 raffleId, address user) view returns (uint256)",
+            "function hasRole(bytes32 role, address account) view returns (bool)",
+            "function deposit(uint256 amount)",
+            "function claimWinnerReward(uint256 raffleId)",
+            "function injectCapital(uint256 amount)",
+            "function startRaffle(uint256 _ticketPrice, string calldata _genericReward, uint8 _genericAmount, string calldata _winnerReward, uint8 _winnerAmount)",
+            "function stopRaffle()",
+            "function setHouseFee(uint256 _houseFee)",
+            "function updateVrfConfig(uint256 _subscriptionId, bytes32 _keyHash, uint32 _callbackGasLimit, uint16 _requestConfirmations)",
+            "function withdrawHouseFees(address recipient)",
+            "function emergencyPause()",
+            "function assignAdminRole(address account)"
+        ];
+
+        const ERC20_ABI = [
+            "function approve(address spender, uint256 amount) returns (bool)",
+            "function allowance(address owner, address spender) view returns (uint256)"
+        ];
+
+        // Network configurations
+        const NETWORKS = {
+            'eth-mainnet': {
+                name: 'Ethereum Mainnet',
+                chainId: 1,
+                rpcUrl: '',
+                contractAddress: '',
+                aliceToken: ''
+            },
+            'eth-sepolia': {
+                name: 'Ethereum Sepolia',
+                chainId: 11155111,
+                rpcUrl: 'https://gateway.tenderly.co/public/sepolia',
+                contractAddress: '0xDD5e2Bd93B01b842e02ED1dc5933885C7C3f84E1',
+                aliceToken: '0x42dA9C5F5B727E2F9dA13A90754Cc4ED1D30e544'
+            },
+            'bsc-mainnet': {
+                name: 'BSC Mainnet',
+                chainId: 56,
+                rpcUrl: '',
+                contractAddress: '',
+                aliceToken: ''
+            },
+            'bsc-testnet': {
+                name: 'BSC Testnet',
+                chainId: 97,
+                rpcUrl: 'https://data-seed-prebsc-1-s1.binance.org:8545',
+                contractAddress: '0x2688184E2bBde09b7D22f0691f0D4ebbD3b39b1C',
+                aliceToken: '0xfF48145A7A869Cb19252074CF83D97f1542c3268'
+            }
+        };
+
+        let provider = null;
+        let signer = null;
+        let contract = null;
+        let aliceContract = null;
+        let currentNetwork = 'eth-mainnet';
+        let connectedAddress = null;
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSavedConfig();
+            document.getElementById('networkSelect').addEventListener('change', handleNetworkChange);
+        });
+
+        function loadSavedConfig() {
+            const savedConfig = localStorage.getItem('raffleConfig');
+            if (savedConfig) {
+                const config = JSON.parse(savedConfig);
+                Object.assign(NETWORKS, config);
+            }
+            updateConfigInputs();
+        }
+
+        function updateConfigInputs() {
+            const network = NETWORKS[currentNetwork];
+            document.getElementById('contractAddress').value = network.contractAddress || '';
+            document.getElementById('rpcUrl').value = network.rpcUrl || '';
+            document.getElementById('aliceTokenAddress').value = network.aliceToken || '';
+        }
+
+        function saveConfig() {
+            const network = currentNetwork;
+            NETWORKS[network].contractAddress = document.getElementById('contractAddress').value;
+            NETWORKS[network].rpcUrl = document.getElementById('rpcUrl').value;
+            NETWORKS[network].aliceToken = document.getElementById('aliceTokenAddress').value;
+            
+            localStorage.setItem('raffleConfig', JSON.stringify(NETWORKS));
+            showToast('Configuration saved!', 'success');
+            
+            // Reinitialize contract if connected
+            if (signer) {
+                initializeContract();
+            }
+        }
+
+        async function handleNetworkChange(e) {
+            currentNetwork = e.target.value;
+            updateConfigInputs();
+            
+            if (window.ethereum && connectedAddress) {
+                try {
+                    await switchNetwork(NETWORKS[currentNetwork].chainId);
+                    await initializeContract();
+                    await loadContractState();
+                } catch (error) {
+                    showToast('Failed to switch network: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function switchNetwork(chainId) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x' + chainId.toString(16) }],
+                });
+            } catch (switchError) {
+                if (switchError.code === 4902) {
+                    showToast('Network not found in wallet. Please add it manually.', 'error');
+                }
+                throw switchError;
+            }
+        }
+
+        async function connectWallet() {
+            if (!window.ethereum) {
+                showToast('Please install MetaMask or another Web3 wallet!', 'error');
+                return;
+            }
+
+            try {
+                const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                connectedAddress = accounts[0];
+                
+                provider = new ethers.BrowserProvider(window.ethereum);
+                signer = await provider.getSigner();
+                
+                document.getElementById('statusDot').classList.add('connected');
+                document.getElementById('walletAddress').textContent = 
+                    connectedAddress.slice(0, 6) + '...' + connectedAddress.slice(-4);
+                document.getElementById('connectBtn').textContent = 'Connected';
+                document.getElementById('connectBtn').disabled = true;
+
+                await initializeContract();
+                await loadContractState();
+
+                // Listen for account changes
+                window.ethereum.on('accountsChanged', handleAccountsChanged);
+                window.ethereum.on('chainChanged', () => window.location.reload());
+
+                showToast('Wallet connected successfully!', 'success');
+            } catch (error) {
+                showToast('Failed to connect wallet: ' + error.message, 'error');
+            }
+        }
+
+        function handleAccountsChanged(accounts) {
+            if (accounts.length === 0) {
+                document.getElementById('statusDot').classList.remove('connected');
+                document.getElementById('walletAddress').textContent = 'Not Connected';
+                document.getElementById('connectBtn').textContent = 'Connect Wallet';
+                document.getElementById('connectBtn').disabled = false;
+                connectedAddress = null;
+            } else {
+                connectedAddress = accounts[0];
+                document.getElementById('walletAddress').textContent = 
+                    connectedAddress.slice(0, 6) + '...' + connectedAddress.slice(-4);
+            }
+        }
+
+        async function initializeContract() {
+            const network = NETWORKS[currentNetwork];
+            if (!network.contractAddress) {
+                showToast('Please set contract address first', 'error');
+                return;
+            }
+
+            contract = new ethers.Contract(network.contractAddress, RAFFLE_ABI, signer);
+            
+            if (network.aliceToken) {
+                aliceContract = new ethers.Contract(network.aliceToken, ERC20_ABI, signer);
+            }
+        }
+
+        async function loadContractState() {
+            if (!contract) {
+                showToast('Please connect wallet and set contract address', 'error');
+                return;
+            }
+
+            try {
+                const stateElements = {
+                    'state-currentRaffleId': contract.currentRaffleId(),
+                    'state-awaitingVrf': contract.awaitingVrf(),
+                    'state-houseFee': contract.houseFee(),
+                    'state-accumulatedHouseFees': contract.accumulatedHouseFees(),
+                    'state-subscriptionId': contract.subscriptionId(),
+                    'state-keyHash': contract.keyHash(),
+                    'state-callbackGasLimit': contract.callbackGasLimit(),
+                    'state-requestConfirmations': contract.requestConfirmations(),
+                    'state-paused': contract.paused(),
+                    'state-aliceToken': contract.ALICE_TOKEN()
+                };
+
+                for (const [id, promise] of Object.entries(stateElements)) {
+                    try {
+                        const value = await promise;
+                        document.getElementById(id).textContent = value.toString();
+                        document.getElementById(id).classList.remove('loading');
+                    } catch (e) {
+                        document.getElementById(id).textContent = 'Error';
+                    }
+                }
+
+                showToast('Contract state loaded!', 'success');
+            } catch (error) {
+                showToast('Failed to load state: ' + error.message, 'error');
+            }
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        // Read Functions
+        async function callGetTicketCount() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('getTicketCount-raffleId').value;
+            try {
+                const result = await contract.getTicketCount(raffleId);
+                document.getElementById('result-getTicketCount').textContent = result.toString();
+                document.getElementById('result-getTicketCount').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-getTicketCount').textContent = 'Error: ' + e.message;
+                document.getElementById('result-getTicketCount').className = 'result-box error';
+            }
+        }
+
+        async function callGetRaffleConfig() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('getRaffleConfig-raffleId').value;
+            try {
+                const result = await contract.getRaffleConfig(raffleId);
+                const formatted = `Ticket Price: ${result.ticketPrice}\nGeneric Reward: ${result.genericReward} (${result.genericRewardAmount})\nWinner Reward: ${result.winnerReward} (${result.winnerRewardAmount})\nPrize Pool: ${result.prizePool}\nWinner: ${result.winner}\nClaimed: ${result.winnerClaimed}\nActive: ${result.isActive}`;
+                document.getElementById('result-getRaffleConfig').textContent = formatted;
+                document.getElementById('result-getRaffleConfig').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-getRaffleConfig').textContent = 'Error: ' + e.message;
+                document.getElementById('result-getRaffleConfig').className = 'result-box error';
+            }
+        }
+
+        async function callGetWinner() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('getWinner-raffleId').value;
+            try {
+                const result = await contract.getWinner(raffleId);
+                document.getElementById('result-getWinner').textContent = result;
+                document.getElementById('result-getWinner').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-getWinner').textContent = 'Error: ' + e.message;
+                document.getElementById('result-getWinner').className = 'result-box error';
+            }
+        }
+
+        async function callGetPrizePool() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('getPrizePool-raffleId').value;
+            try {
+                const result = await contract.getPrizePool(raffleId);
+                document.getElementById('result-getPrizePool').textContent = result.toString();
+                document.getElementById('result-getPrizePool').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-getPrizePool').textContent = 'Error: ' + e.message;
+                document.getElementById('result-getPrizePool').className = 'result-box error';
+            }
+        }
+
+        async function callHasClaimedGeneric() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('hasClaimedGeneric-raffleId').value;
+            const user = document.getElementById('hasClaimedGeneric-user').value;
+            try {
+                const result = await contract.hasClaimedGeneric(raffleId, user);
+                document.getElementById('result-hasClaimedGeneric').textContent = result.toString();
+                document.getElementById('result-hasClaimedGeneric').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-hasClaimedGeneric').textContent = 'Error: ' + e.message;
+                document.getElementById('result-hasClaimedGeneric').className = 'result-box error';
+            }
+        }
+
+        async function callGetTicketPriceFormatted() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('getTicketPriceFormatted-raffleId').value;
+            try {
+                const result = await contract.getTicketPriceFormatted(raffleId);
+                document.getElementById('result-getTicketPriceFormatted').textContent = result.toString();
+                document.getElementById('result-getTicketPriceFormatted').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-getTicketPriceFormatted').textContent = 'Error: ' + e.message;
+                document.getElementById('result-getTicketPriceFormatted').className = 'result-box error';
+            }
+        }
+
+        async function callGetUserTickets() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('getUserTickets-raffleId').value;
+            const user = document.getElementById('getUserTickets-user').value;
+            try {
+                const result = await contract.getUserTickets(raffleId, user);
+                document.getElementById('result-getUserTickets').textContent = result.toString();
+                document.getElementById('result-getUserTickets').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-getUserTickets').textContent = 'Error: ' + e.message;
+                document.getElementById('result-getUserTickets').className = 'result-box error';
+            }
+        }
+
+        async function callCalculateWinnerPrize() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('calculateWinnerPrize-raffleId').value;
+            try {
+                const result = await contract.calculateWinnerPrize(raffleId);
+                document.getElementById('result-calculateWinnerPrize').textContent = result.toString();
+                document.getElementById('result-calculateWinnerPrize').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-calculateWinnerPrize').textContent = 'Error: ' + e.message;
+                document.getElementById('result-calculateWinnerPrize').className = 'result-box error';
+            }
+        }
+
+        async function callUserTicketCount() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('userTicketCount-raffleId').value;
+            const user = document.getElementById('userTicketCount-user').value;
+            try {
+                const result = await contract.userTicketCount(raffleId, user);
+                document.getElementById('result-userTicketCount').textContent = result.toString();
+                document.getElementById('result-userTicketCount').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-userTicketCount').textContent = 'Error: ' + e.message;
+                document.getElementById('result-userTicketCount').className = 'result-box error';
+            }
+        }
+
+        async function callHasRole() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const account = document.getElementById('hasRole-account').value;
+            try {
+                const role = await contract.RAFFLE_ADMIN_ROLE();
+                const result = await contract.hasRole(role, account);
+                document.getElementById('result-hasRole').textContent = result.toString();
+                document.getElementById('result-hasRole').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-hasRole').textContent = 'Error: ' + e.message;
+                document.getElementById('result-hasRole').className = 'result-box error';
+            }
+        }
+
+        // User Functions
+        async function callApprove() {
+            if (!aliceContract) return showToast('Set ALICE token address first', 'error');
+            const amount = document.getElementById('approve-amount').value;
+            try {
+                const network = NETWORKS[currentNetwork];
+                const tx = await aliceContract.approve(network.contractAddress, amount);
+                document.getElementById('result-approve').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-approve').textContent = 'Approved! Tx: ' + tx.hash;
+                document.getElementById('result-approve').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-approve').textContent = 'Error: ' + e.message;
+                document.getElementById('result-approve').className = 'result-box error';
+            }
+        }
+
+        async function callDeposit() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const amount = document.getElementById('deposit-amount').value;
+            try {
+                const tx = await contract.deposit(amount);
+                document.getElementById('result-deposit').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-deposit').textContent = 'Deposited! Tx: ' + tx.hash;
+                document.getElementById('result-deposit').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-deposit').textContent = 'Error: ' + e.message;
+                document.getElementById('result-deposit').className = 'result-box error';
+            }
+        }
+
+        async function callClaimWinnerReward() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const raffleId = document.getElementById('claimWinnerReward-raffleId').value;
+            try {
+                const tx = await contract.claimWinnerReward(raffleId);
+                document.getElementById('result-claimWinnerReward').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-claimWinnerReward').textContent = 'Claimed! Tx: ' + tx.hash;
+                document.getElementById('result-claimWinnerReward').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-claimWinnerReward').textContent = 'Error: ' + e.message;
+                document.getElementById('result-claimWinnerReward').className = 'result-box error';
+            }
+        }
+
+        async function callInjectCapital() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const amount = document.getElementById('injectCapital-amount').value;
+            try {
+                const tx = await contract.injectCapital(amount);
+                document.getElementById('result-injectCapital').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-injectCapital').textContent = 'Injected! Tx: ' + tx.hash;
+                document.getElementById('result-injectCapital').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-injectCapital').textContent = 'Error: ' + e.message;
+                document.getElementById('result-injectCapital').className = 'result-box error';
+            }
+        }
+
+        // Admin Functions
+        async function callStartRaffle() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const ticketPrice = document.getElementById('startRaffle-ticketPrice').value;
+            const genericReward = document.getElementById('startRaffle-genericReward').value;
+            const genericAmount = document.getElementById('startRaffle-genericAmount').value;
+            const winnerReward = document.getElementById('startRaffle-winnerReward').value;
+            const winnerAmount = document.getElementById('startRaffle-winnerAmount').value;
+            try {
+                const tx = await contract.startRaffle(ticketPrice, genericReward, genericAmount, winnerReward, winnerAmount);
+                document.getElementById('result-startRaffle').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-startRaffle').textContent = 'Raffle started! Tx: ' + tx.hash;
+                document.getElementById('result-startRaffle').className = 'result-box success';
+                await loadContractState();
+            } catch (e) {
+                document.getElementById('result-startRaffle').textContent = 'Error: ' + e.message;
+                document.getElementById('result-startRaffle').className = 'result-box error';
+            }
+        }
+
+        async function callStopRaffle() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            try {
+                const tx = await contract.stopRaffle();
+                document.getElementById('result-stopRaffle').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-stopRaffle').textContent = 'Raffle stopped! Tx: ' + tx.hash;
+                document.getElementById('result-stopRaffle').className = 'result-box success';
+                await loadContractState();
+            } catch (e) {
+                document.getElementById('result-stopRaffle').textContent = 'Error: ' + e.message;
+                document.getElementById('result-stopRaffle').className = 'result-box error';
+            }
+        }
+
+        // Owner Functions
+        async function callSetHouseFee() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const fee = document.getElementById('setHouseFee-fee').value;
+            try {
+                const tx = await contract.setHouseFee(fee);
+                document.getElementById('result-setHouseFee').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-setHouseFee').textContent = 'Fee updated! Tx: ' + tx.hash;
+                document.getElementById('result-setHouseFee').className = 'result-box success';
+                await loadContractState();
+            } catch (e) {
+                document.getElementById('result-setHouseFee').textContent = 'Error: ' + e.message;
+                document.getElementById('result-setHouseFee').className = 'result-box error';
+            }
+        }
+
+        async function callUpdateVrfConfig() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const subId = document.getElementById('updateVrf-subId').value;
+            const keyHash = document.getElementById('updateVrf-keyHash').value;
+            const gasLimit = document.getElementById('updateVrf-gasLimit').value;
+            const confirmations = document.getElementById('updateVrf-confirmations').value;
+            try {
+                const tx = await contract.updateVrfConfig(subId, keyHash, gasLimit, confirmations);
+                document.getElementById('result-updateVrfConfig').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-updateVrfConfig').textContent = 'VRF config updated! Tx: ' + tx.hash;
+                document.getElementById('result-updateVrfConfig').className = 'result-box success';
+                await loadContractState();
+            } catch (e) {
+                document.getElementById('result-updateVrfConfig').textContent = 'Error: ' + e.message;
+                document.getElementById('result-updateVrfConfig').className = 'result-box error';
+            }
+        }
+
+        async function callWithdrawHouseFees() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const recipient = document.getElementById('withdrawFees-recipient').value;
+            try {
+                const tx = await contract.withdrawHouseFees(recipient);
+                document.getElementById('result-withdrawHouseFees').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-withdrawHouseFees').textContent = 'Fees withdrawn! Tx: ' + tx.hash;
+                document.getElementById('result-withdrawHouseFees').className = 'result-box success';
+                await loadContractState();
+            } catch (e) {
+                document.getElementById('result-withdrawHouseFees').textContent = 'Error: ' + e.message;
+                document.getElementById('result-withdrawHouseFees').className = 'result-box error';
+            }
+        }
+
+        async function callEmergencyPause() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            try {
+                const tx = await contract.emergencyPause();
+                document.getElementById('result-emergencyPause').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-emergencyPause').textContent = 'Contract paused! Tx: ' + tx.hash;
+                document.getElementById('result-emergencyPause').className = 'result-box success';
+                await loadContractState();
+            } catch (e) {
+                document.getElementById('result-emergencyPause').textContent = 'Error: ' + e.message;
+                document.getElementById('result-emergencyPause').className = 'result-box error';
+            }
+        }
+
+        async function callAssignAdminRole() {
+            if (!contract) return showToast('Connect wallet first', 'error');
+            const account = document.getElementById('assignAdmin-account').value;
+            try {
+                const tx = await contract.assignAdminRole(account);
+                document.getElementById('result-assignAdminRole').textContent = 'Tx submitted: ' + tx.hash;
+                await tx.wait();
+                document.getElementById('result-assignAdminRole').textContent = 'Admin assigned! Tx: ' + tx.hash;
+                document.getElementById('result-assignAdminRole').className = 'result-box success';
+            } catch (e) {
+                document.getElementById('result-assignAdminRole').textContent = 'Error: ' + e.message;
+                document.getElementById('result-assignAdminRole').className = 'result-box error';
+            }
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const existing = document.querySelector('.toast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.className = 'toast ' + type;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => toast.remove(), 4000);
+        }
+    </script>
+</body>
+</html>
