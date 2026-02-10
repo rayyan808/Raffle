@@ -1275,7 +1275,7 @@
             const raffleId = document.getElementById('getRaffleConfig-raffleId').value;
             try {
                 const result = await contract.getRaffleConfig(raffleId);
-                const formatted = `Ticket Price: ${result.ticketPrice}\nGeneric Reward: ${result.genericReward} (${result.genericRewardAmount})\nWinner Reward: ${result.winnerReward} (${result.winnerRewardAmount})\nPrize Pool: ${result.prizePool}\nWinner: ${result.winner}\nClaimed: ${result.winnerClaimed}\nActive: ${result.isActive}`;
+                const formatted = `Ticket Price: ${result.ticketPrice.toString()}\nGeneric Reward: ${result.genericReward} (${result.genericRewardAmount})\nWinner Reward: ${result.winnerReward} (${result.winnerRewardAmount})\nPrize Pool: ${result.prizePool.toString()}\nWinner: ${result.winner}\nClaimed: ${result.winnerClaimed}\nActive: ${result.isActive}`;
                 document.getElementById('result-getRaffleConfig').textContent = formatted;
                 document.getElementById('result-getRaffleConfig').className = 'result-box success';
             } catch (e) {

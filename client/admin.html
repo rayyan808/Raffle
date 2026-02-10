@@ -632,9 +632,9 @@
     </div>
   </div>
 
-  <!-- Dependencies -->
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Dependencies - Using development builds for debugging -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 
@@ -740,8 +740,15 @@
 
     // Helpers
     const formatAlice = (amount) => {
-      if (!amount) return '0';
-      return parseFloat(ethers.utils.formatUnits(amount, ALICE_DECIMALS)).toLocaleString();
+      if (!amount || amount === '0') return '0';
+      try {
+        // amount should now be a string representation of the BigNumber
+        const formatted = ethers.utils.formatUnits(amount.toString(), ALICE_DECIMALS);
+        return parseFloat(formatted).toLocaleString();
+      } catch (e) {
+        console.error('formatAlice error:', e, amount);
+        return '0';
+      }
     };
 
     const parseAlice = (amount) => {
@@ -751,6 +758,34 @@
     const shortenAddress = (address) => {
       if (!address) return '';
       return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    };
+
+    // Helper to safely convert BigNumber to number
+    const toNumber = (value) => {
+      if (value === null || value === undefined) return 0;
+      if (value._isBigNumber) {
+        try {
+          return value.toNumber();
+        } catch (e) {
+          // If number is too large, return as string converted to number
+          return parseInt(value.toString(), 10) || 0;
+        }
+      }
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseInt(value, 10) || 0;
+      return 0;
+    };
+
+    // Helper to safely convert BigNumber to string (for large numbers)
+    const toBigNumberString = (value) => {
+      if (value === null || value === undefined) return '0';
+      if (value._isBigNumber) {
+        return value.toString();
+      }
+      if (typeof value === 'number' || typeof value === 'string') {
+        return value.toString();
+      }
+      return '0';
     };
 
     // Main Admin App
@@ -773,7 +808,7 @@
         awaitingVrf: false,
         currentRaffleId: 0,
         houseFee: 0,
-        accumulatedFees: 0,
+        accumulatedFees: '0',
         vrfConfig: {},
         currentRaffle: null,
         ticketCount: 0,
@@ -852,7 +887,7 @@
           awaitingVrf: false,
           currentRaffleId: 0,
           houseFee: 0,
-          accumulatedFees: 0,
+          accumulatedFees: '0',
           vrfConfig: {},
           currentRaffle: null,
           ticketCount: 0,
@@ -1006,52 +1041,86 @@
         if (!contract) return;
 
         try {
+          let results;
+          try {
+            results = await Promise.all([
+              contract.owner(),
+              contract.paused(),
+              contract.awaitingVrf(),
+              contract.currentRaffleId(),
+              contract.houseFee(),
+              contract.accumulatedHouseFees(),
+              contract.subscriptionId(),
+              contract.keyHash(),
+              contract.callbackGasLimit(),
+              contract.requestConfirmations(),
+            ]);
+          } catch (err) {
+            console.error('Error fetching contract data:', err);
+            return; // Don't update state if we can't fetch
+          }
+
           const [
             owner,
             paused,
             awaitingVrf,
-            currentRaffleId,
-            houseFee,
-            accumulatedFees,
-            subscriptionId,
+            currentRaffleIdBN,
+            houseFeeBN,
+            accumulatedFeesBN,
+            subscriptionIdBN,
             keyHash,
-            callbackGasLimit,
-            requestConfirmations,
-          ] = await Promise.all([
-            contract.owner(),
-            contract.paused(),
-            contract.awaitingVrf(),
-            contract.currentRaffleId(),
-            contract.houseFee(),
-            contract.accumulatedHouseFees(),
-            contract.subscriptionId(),
-            contract.keyHash(),
-            contract.callbackGasLimit(),
-            contract.requestConfirmations(),
-          ]);
+            callbackGasLimitBN,
+            requestConfirmationsBN,
+          ] = results;
+
+          // Convert all BigNumbers to primitives immediately
+          const raffleId = toNumber(currentRaffleIdBN);
+          const houseFee = toNumber(houseFeeBN);
+          const accumulatedFees = toBigNumberString(accumulatedFeesBN);
+          const subscriptionId = toBigNumberString(subscriptionIdBN);
+          const callbackGasLimit = toNumber(callbackGasLimitBN);
+          const requestConfirmations = toNumber(requestConfirmationsBN);
 
           let currentRaffle = null;
           let ticketCount = 0;
           
-          if (currentRaffleId.toNumber() > 0) {
-            [currentRaffle, ticketCount] = await Promise.all([
-              contract.getRaffleConfig(currentRaffleId),
-              contract.getTicketCount(currentRaffleId),
-            ]);
+          if (raffleId > 0) {
+            try {
+              const [raffleConfig, ticketCountBN] = await Promise.all([
+                contract.getRaffleConfig(currentRaffleIdBN),
+                contract.getTicketCount(currentRaffleIdBN),
+              ]);
+              
+              // Extract and convert raffle config values
+              currentRaffle = {
+                ticketPrice: toBigNumberString(raffleConfig.ticketPrice),
+                genericReward: String(raffleConfig.genericReward || ''),
+                genericRewardAmount: toNumber(raffleConfig.genericRewardAmount),
+                winnerReward: String(raffleConfig.winnerReward || ''),
+                winnerRewardAmount: toNumber(raffleConfig.winnerRewardAmount),
+                prizePool: toBigNumberString(raffleConfig.prizePool),
+                winner: String(raffleConfig.winner || ''),
+                winnerClaimed: Boolean(raffleConfig.winnerClaimed),
+                isActive: Boolean(raffleConfig.isActive),
+              };
+              ticketCount = toNumber(ticketCountBN);
+            } catch (err) {
+              console.error('Error fetching raffle details:', err);
+            }
           }
 
           setContractState({
-            owner,
-            paused,
-            awaitingVrf,
-            currentRaffleId: currentRaffleId.toNumber(),
-            houseFee: houseFee.toNumber(),
-            accumulatedFees,
+            owner: String(owner || ''),
+            paused: Boolean(paused),
+            awaitingVrf: Boolean(awaitingVrf),
+            currentRaffleId: raffleId,
+            houseFee: houseFee,
+            accumulatedFees: accumulatedFees,
             vrfConfig: {
-              subscriptionId: subscriptionId.toString(),
-              keyHash,
-              callbackGasLimit,
-              requestConfirmations,
+              subscriptionId: subscriptionId,
+              keyHash: String(keyHash || ''),
+              callbackGasLimit: callbackGasLimit,
+              requestConfirmations: requestConfirmations,
             },
             currentRaffle,
             ticketCount: ticketCount,
@@ -1059,17 +1128,17 @@
 
           // Update VRF form with current values
           setVrfForm({
-            subscriptionId: subscriptionId.toString(),
-            keyHash,
-            callbackGasLimit: callbackGasLimit.toString(),
-            requestConfirmations: requestConfirmations.toString(),
+            subscriptionId: String(subscriptionId),
+            keyHash: String(keyHash || ''),
+            callbackGasLimit: String(callbackGasLimit),
+            requestConfirmations: String(requestConfirmations),
           });
 
           // Check if user has admin role
           if (userAddress) {
             try {
               const hasAdminRole = await contract.hasRole(RAFFLE_ADMIN_ROLE, userAddress);
-              setIsAdmin(hasAdminRole);
+              setIsAdmin(Boolean(hasAdminRole));
             } catch (err) {
               console.error('Failed to check admin role:', err);
               // Fallback to owner check if hasRole fails
@@ -1212,6 +1281,28 @@
       const isLoading = (action) => loadingAction === action;
       const canExecute = signer && isAdmin && !networkMismatch;
 
+      // Helper to check if accumulated fees is zero
+      const isAccumulatedFeesZero = () => {
+        if (!safeContractState.accumulatedFees) return true;
+        return safeContractState.accumulatedFees === '0' || safeContractState.accumulatedFees === '';
+      };
+
+      // Safety check - ensure all state values are primitives before rendering
+      const safeContractState = {
+        owner: String(contractState.owner || ''),
+        paused: Boolean(contractState.paused),
+        awaitingVrf: Boolean(contractState.awaitingVrf),
+        currentRaffleId: Number(contractState.currentRaffleId) || 0,
+        houseFee: Number(contractState.houseFee) || 0,
+        accumulatedFees: String(contractState.accumulatedFees || '0'),
+        ticketCount: Number(contractState.ticketCount) || 0,
+        currentRaffle: contractState.currentRaffle ? {
+          ...contractState.currentRaffle,
+          prizePool: String(contractState.currentRaffle.prizePool || '0'),
+          isActive: Boolean(contractState.currentRaffle.isActive),
+        } : null,
+      };
+
       return (
         <>
           {/* Network Indicator */}
@@ -1286,7 +1377,7 @@
             {loading ? (
               <div className="loading-container">
                 <div className="loading-spinner"></div>
-                <div className="loading-text">Loading {networkConfig.shortName}...</div>
+                <div className="loading-text">Loading {networkConfig.shortName || networkConfig.displayName || 'Network'}...</div>
               </div>
             ) : !userAddress ? (
               <div className="not-connected">
@@ -1303,7 +1394,7 @@
                 <h2>Wrong Network</h2>
                 <p>Please switch your wallet to {networkConfig.name}</p>
                 <button className="btn btn-primary" onClick={requestWalletNetworkSwitch} style={{maxWidth: '300px', margin: '0 auto'}}>
-                  Switch to {networkConfig.shortName}
+                  Switch to {networkConfig.shortName || networkConfig.displayName || 'Network'}
                 </button>
               </div>
             ) : (
@@ -1312,35 +1403,35 @@
                 <div className="status-bar">
                   <div className="status-item">
                     <span className="status-label">Network</span>
-                    <span className="status-value">{networkConfig.shortName}</span>
+                    <span className="status-value">{networkConfig.shortName || networkConfig.displayName || 'Unknown'}</span>
                   </div>
                   <div className="status-item">
                     <span className="status-label">Status</span>
-                    <span className={`status-value ${contractState.paused ? 'paused' : 'active'}`}>
-                      {contractState.paused ? '⏸ Paused' : '▶ Active'}
+                    <span className={`status-value ${safeContractState.paused ? 'paused' : 'active'}`}>
+                      {safeContractState.paused ? '⏸ Paused' : '▶ Active'}
                     </span>
                   </div>
                   <div className="status-item">
                     <span className="status-label">Raffle ID</span>
-                    <span className="status-value">#{contractState.currentRaffleId}</span>
+                    <span className="status-value">#{String(safeContractState.currentRaffleId)}</span>
                   </div>
                   <div className="status-item">
                     <span className="status-label">VRF</span>
-                    <span className={`status-value ${contractState.awaitingVrf ? 'pending' : 'active'}`}>
-                      {contractState.awaitingVrf ? '⏳ Pending' : '✓ Ready'}
+                    <span className={`status-value ${safeContractState.awaitingVrf ? 'pending' : 'active'}`}>
+                      {safeContractState.awaitingVrf ? '⏳ Pending' : '✓ Ready'}
                     </span>
                   </div>
                   <div className="status-item">
                     <span className="status-label">Tickets</span>
-                    <span className="status-value">{contractState.ticketCount}</span>
+                    <span className="status-value">{String(safeContractState.ticketCount)}</span>
                   </div>
                   <div className="status-item">
                     <span className="status-label">House Fee</span>
-                    <span className="status-value">{contractState.houseFee / 100}%</span>
+                    <span className="status-value">{String(safeContractState.houseFee / 100)}%</span>
                   </div>
                   <div className="status-item">
                     <span className="status-label">Accumulated Fees</span>
-                    <span className="status-value">{formatAlice(contractState.accumulatedFees)} ALICE</span>
+                    <span className="status-value">{formatAlice(safeContractState.accumulatedFees)} ALICE</span>
                   </div>
                 </div>
 
@@ -1412,11 +1503,11 @@
                     <button 
                       className={`btn btn-success ${isLoading('startRaffle') ? 'loading' : ''}`}
                       onClick={handleStartRaffle}
-                      disabled={!canExecute || !contractState.paused || contractState.awaitingVrf || isLoading('startRaffle')}
+                      disabled={!canExecute || !safeContractState.paused || safeContractState.awaitingVrf || isLoading('startRaffle')}
                     >
                       {isLoading('startRaffle') ? 'Starting...' : 'Start Raffle'}
                     </button>
-                    {!contractState.paused && <p className="form-hint">⚠️ Stop current raffle first</p>}
+                    {!safeContractState.paused && <p className="form-hint">⚠️ Stop current raffle first</p>}
                   </div>
 
                   {/* Stop Raffle */}
@@ -1426,19 +1517,19 @@
                       Stop Raffle
                     </h3>
                     
-                    {contractState.currentRaffle && (
+                    {safeContractState.currentRaffle && (
                       <div className="info-box">
                         <div className="info-row">
                           <span className="info-label">Prize Pool</span>
-                          <span className="info-value">{formatAlice(contractState.currentRaffle.prizePool)} ALICE</span>
+                          <span className="info-value">{formatAlice(safeContractState.currentRaffle.prizePool)} ALICE</span>
                         </div>
                         <div className="info-row">
                           <span className="info-label">Tickets Sold</span>
-                          <span className="info-value">{contractState.ticketCount}</span>
+                          <span className="info-value">{String(safeContractState.ticketCount)}</span>
                         </div>
                         <div className="info-row">
                           <span className="info-label">Status</span>
-                          <span className="info-value">{contractState.currentRaffle.isActive ? 'Active' : 'Inactive'}</span>
+                          <span className="info-value">{safeContractState.currentRaffle.isActive ? 'Active' : 'Inactive'}</span>
                         </div>
                       </div>
                     )}
@@ -1446,11 +1537,11 @@
                     <button 
                       className={`btn btn-warning ${isLoading('stopRaffle') ? 'loading' : ''}`}
                       onClick={handleStopRaffle}
-                      disabled={!canExecute || contractState.paused || contractState.ticketCount === 0 || isLoading('stopRaffle')}
+                      disabled={!canExecute || safeContractState.paused || safeContractState.ticketCount === 0 || isLoading('stopRaffle')}
                     >
                       {isLoading('stopRaffle') ? 'Stopping...' : 'Stop Raffle & Select Winner'}
                     </button>
-                    {contractState.ticketCount === 0 && !contractState.paused && (
+                    {safeContractState.ticketCount === 0 && !safeContractState.paused && (
                       <p className="form-hint">⚠️ Need at least 1 participant</p>
                     )}
                   </div>
@@ -1477,7 +1568,7 @@
                     <button 
                       className={`btn btn-primary ${isLoading('injectCapital') ? 'loading' : ''}`}
                       onClick={handleInjectCapital}
-                      disabled={!signer || contractState.paused || isLoading('injectCapital') || networkMismatch}
+                      disabled={!signer || safeContractState.paused || isLoading('injectCapital') || networkMismatch}
                     >
                       {isLoading('injectCapital') ? 'Injecting...' : 'Inject Capital'}
                     </button>
@@ -1493,11 +1584,11 @@
                     <div className="info-box">
                       <div className="info-row">
                         <span className="info-label">Current Fee</span>
-                        <span className="info-value">{contractState.houseFee / 100}%</span>
+                        <span className="info-value">{String(safeContractState.houseFee / 100)}%</span>
                       </div>
                       <div className="info-row">
                         <span className="info-label">Accumulated</span>
-                        <span className="info-value">{formatAlice(contractState.accumulatedFees)} ALICE</span>
+                        <span className="info-value">{formatAlice(safeContractState.accumulatedFees)} ALICE</span>
                       </div>
                     </div>
                     
@@ -1536,7 +1627,7 @@
                     <button 
                       className={`btn btn-success ${isLoading('withdrawFees') ? 'loading' : ''}`}
                       onClick={handleWithdrawFees}
-                      disabled={!canExecute || contractState.accumulatedFees.eq?.(0) || isLoading('withdrawFees')}
+                      disabled={!canExecute || isAccumulatedFeesZero() || isLoading('withdrawFees')}
                     >
                       {isLoading('withdrawFees') ? 'Withdrawing...' : 'Withdraw Fees'}
                     </button>
@@ -1609,7 +1700,7 @@
                     <button 
                       className={`btn btn-danger ${isLoading('emergencyPause') ? 'loading' : ''}`}
                       onClick={handleEmergencyPause}
-                      disabled={!canExecute || contractState.paused || contractState.awaitingVrf || isLoading('emergencyPause')}
+                      disabled={!canExecute || safeContractState.paused || safeContractState.awaitingVrf || isLoading('emergencyPause')}
                       style={{marginBottom: '1rem'}}
                     >
                       {isLoading('emergencyPause') ? 'Pausing...' : 'Emergency Pause'}
