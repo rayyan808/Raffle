@@ -65,7 +65,8 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus, AccessContr
 
     /// @notice Accumulated house fees available for withdrawal
     uint256 public accumulatedHouseFees;
-
+    /// @notice Time after which raffle ends
+    uint256 public raffleEndTime;
     // ============ Raffle Configuration Per Raffle ============
 
     struct RaffleConfig {
@@ -130,17 +131,13 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus, AccessContr
     /// @param raffleId The raffle ID
     /// @param token The in-game reward token name
     /// @param amount The amount of reward token
-    event GenericRewardClaimed(address indexed wallet, uint256 indexed raffleId, string token, uint8 amount);
+    event CRC2Reward(address indexed wallet, uint256 indexed raffleId, string token, uint8 amount);
 
     /// @notice Emitted when a winner claims their reward
     /// @param winner The winner's address
     /// @param raffleId The raffle ID
-    /// @param token The winner reward token name
-    /// @param tokenAmount The token amount
     /// @param prizeAmount The ALICE prize amount
-    event WinnerRewardClaimed(
-        address indexed winner, uint256 indexed raffleId, string token, uint8 tokenAmount, uint256 prizeAmount
-    );
+    event WinnerRewardClaimed(address indexed winner, uint256 indexed raffleId, uint256 prizeAmount);
 
     /// @notice Emitted when a winner is selected
     /// @param winner The winner's address
@@ -248,7 +245,7 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus, AccessContr
         // Award generic reward (once per raffle per user)
         if (!hasClaimedGenericReward[currentRaffleId][msg.sender]) {
             hasClaimedGenericReward[currentRaffleId][msg.sender] = true;
-            emit GenericRewardClaimed(msg.sender, currentRaffleId, raffle.genericReward, raffle.genericRewardAmount);
+            emit CRC2Reward(msg.sender, currentRaffleId, raffle.genericReward, raffle.genericRewardAmount);
         }
     }
 
@@ -281,7 +278,8 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus, AccessContr
         bool success = ALICE_TOKEN.transfer(msg.sender, winnerPrize);
         if (!success) revert TransferFailed();
 
-        emit WinnerRewardClaimed(msg.sender, raffleId, raffle.winnerReward, raffle.winnerRewardAmount, winnerPrize);
+        emit WinnerRewardClaimed(msg.sender, raffleId, winnerPrize);
+        emit CRC2Reward(msg.sender, raffleId, raffle.winnerReward, raffle.winnerRewardAmount);
     }
 
     /// @notice Inject capital into the current raffle pool
@@ -314,13 +312,15 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus, AccessContr
         string calldata _genericReward,
         uint8 _genericAmount,
         string calldata _winnerReward,
-        uint8 _winnerAmount
+        uint8 _winnerAmount,
+        uint256 _raffleEndTime
     ) external onlyAdmin {
         if (awaitingVrf) revert VRFRequestPending();
         if (_ticketPrice == 0) revert InvalidTicketPrice();
 
         // Increment raffle ID
         currentRaffleId++;
+        raffleEndTime = _raffleEndTime;
 
         // Configure new raffle
         RaffleConfig storage raffle = raffles[currentRaffleId];

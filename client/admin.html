@@ -721,7 +721,7 @@
       "function ALICE_TOKEN() view returns (address)",
       
       // Write functions
-      "function startRaffle(uint256 _ticketPrice, string _genericReward, uint8 _genericAmount, string _winnerReward, uint8 _winnerAmount)",
+      "function startRaffle(uint256 _ticketPrice, string _genericReward, uint8 _genericAmount, string _winnerReward, uint8 _winnerAmount, uint256 _raffleEndTime)",
       "function stopRaffle()",
       "function setHouseFee(uint256 _houseFee)",
       "function updateVRFConfig(uint256 _subscriptionId, bytes32 _keyHash, uint32 _callbackGasLimit, uint16 _requestConfirmations)",
@@ -823,6 +823,7 @@
         genericAmount: '1',
         winnerReward: '',
         winnerAmount: '1',
+        raffleEndTime: '',
       });
 
       const [houseFeeForm, setHouseFeeForm] = useState('');
@@ -1182,20 +1183,21 @@
 
       // Admin Actions
       const handleStartRaffle = async () => {
-        const { ticketPrice, genericReward, genericAmount, winnerReward, winnerAmount } = startRaffleForm;
-        
-        if (!ticketPrice || !genericReward || !winnerReward) {
+        const { ticketPrice, genericReward, genericAmount, winnerReward, winnerAmount, raffleEndTime } = startRaffleForm;
+
+        if (!ticketPrice || !genericReward || !winnerReward || !raffleEndTime) {
           showToast('Please fill all fields', 'error');
           return;
         }
 
-        await executeTransaction('startRaffle', () => 
+        await executeTransaction('startRaffle', () =>
           contract.startRaffle(
             parseAlice(ticketPrice),
             genericReward,
             parseInt(genericAmount),
             winnerReward,
-            parseInt(winnerAmount)
+            parseInt(winnerAmount),
+            raffleEndTime
           )
         );
       };
@@ -1452,6 +1454,18 @@
                         value={startRaffleForm.ticketPrice}
                         onChange={(e) => setStartRaffleForm({...startRaffleForm, ticketPrice: e.target.value})}
                       />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Raffle End Time (Unix Timestamp)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder={Math.floor(Date.now() / 1000) + 86400}
+                        value={startRaffleForm.raffleEndTime}
+                        onChange={(e) => setStartRaffleForm({...startRaffleForm, raffleEndTime: e.target.value})}
+                      />
+                      <p className="form-hint">Unix timestamp (e.g., {Math.floor(Date.now() / 1000) + 86400} for 24h from now)</p>
                     </div>
 
                     <div className="form-row">
