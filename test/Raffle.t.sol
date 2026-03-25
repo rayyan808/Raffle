@@ -70,7 +70,7 @@ contract RaffleTest is Test {
         //Invariants = tokenAmount, ticketPrice
         vm.startPrank(owner);
         aliceToken.mint(user, tokenAmount);
-        raffleContract.startRaffle(ticketPrice, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(ticketPrice, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
         vm.startPrank(user);
     }
     // ============ Constructor Tests ============
@@ -118,7 +118,7 @@ contract RaffleTest is Test {
 
     function test_startRaffle() public {
         vm.startPrank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
         vm.stopPrank();
 
         assertEq(raffleContract.currentRaffleId(), 1);
@@ -135,25 +135,25 @@ contract RaffleTest is Test {
         vm.expectEmit(true, false, false, true, address(raffleContract));
         emit Raffle.RaffleStarted(1, TICKET_PRICE);
 
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
         vm.stopPrank();
     }
 
     function test_startRaffle_revertsIfNotOwner() public {
         vm.prank(user);
         vm.expectRevert();
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
     }
 
     function test_startRaffle_revertsOnZeroTicketPrice() public {
         vm.prank(owner);
         vm.expectRevert(Raffle.InvalidTicketPrice.selector);
-        raffleContract.startRaffle(0, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(0, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
     }
 
     function test_stopRaffle_revertsWithNoParticipants() public {
         vm.startPrank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         vm.expectRevert(Raffle.NoParticipants.selector);
         raffleContract.stopRaffle();
@@ -183,7 +183,7 @@ contract RaffleTest is Test {
 
     function test_deposit_createsTickets() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
         _mintAndApprove(user, ONE_HUNDRED_ALICE);
 
         vm.prank(user);
@@ -196,14 +196,15 @@ contract RaffleTest is Test {
 
     function test_deposit_emitsEvents() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
+        uint256 raffleId = raffleContract.currentRaffleId();
         _mintAndApprove(user, ONE_HUNDRED_ALICE);
 
         vm.expectEmit(true, true, false, true, address(raffleContract));
         emit Raffle.Deposit(user, 1, ONE_HUNDRED_ALICE, 10);
 
         vm.expectEmit(true, true, false, true, address(raffleContract));
-        emit Raffle.GenericRewardClaimed(user, 1, "generic_reward", 1);
+        emit Raffle.CRC2Reward(user, raffleId, "generic_reward", 1);
 
         vm.prank(user);
         raffleContract.deposit(ONE_HUNDRED_ALICE);
@@ -211,7 +212,7 @@ contract RaffleTest is Test {
 
     function test_deposit_revertsOnInvalidAmount() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1);
 
         uint256 invalidAmount = TICKET_PRICE + 1; // Not a multiple of ticket price
         _mintAndApprove(user, invalidAmount);
@@ -223,7 +224,7 @@ contract RaffleTest is Test {
 
     function test_deposit_revertsOnZeroAmount() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         vm.prank(user);
         vm.expectRevert(Raffle.InvalidAmount.selector);
@@ -232,7 +233,7 @@ contract RaffleTest is Test {
 
     function test_genericReward_onlyClaimedOnce() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
         _mintAndApprove(user, TWO_HUNDRED_ALICE);
 
         vm.prank(user);
@@ -320,7 +321,7 @@ contract RaffleTest is Test {
         uint256 expectedPrize = ONE_HUNDRED_ALICE - (ONE_HUNDRED_ALICE * HOUSE_FEE / 10000);
 
         vm.expectEmit(true, true, false, true, address(raffleContract));
-        emit Raffle.WinnerRewardClaimed(user, 1, "winner_reward", 1, expectedPrize);
+        emit Raffle.CRC2Reward(user, raffleContract.currentRaffleId(), "winner_reward", 1);
 
         vm.prank(user);
         raffleContract.claimWinnerReward(1);
@@ -357,7 +358,7 @@ contract RaffleTest is Test {
 
     function test_claimWinnerReward_revertsIfRaffleStillActive() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         vm.prank(user);
         vm.expectRevert(Raffle.NotWinner.selector);
@@ -439,7 +440,7 @@ contract RaffleTest is Test {
 
     function test_injectCapital() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         uint256 injectAmount = 500 * (10 ** ALICE_DECIMALS);
         _mintAndApprove(user2, injectAmount);
@@ -457,7 +458,7 @@ contract RaffleTest is Test {
 
     function test_injectCapital_revertsOnZeroAmount() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         vm.prank(user);
         vm.expectRevert(Raffle.InvalidAmount.selector);
@@ -514,7 +515,7 @@ contract RaffleTest is Test {
         vrfCoordinatorMock.fulfillRandomWords(1, address(raffleContract));
 
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "reward2", 2, "winner2", 2);
+        raffleContract.startRaffle(TICKET_PRICE, "reward2", 2, "winner2", 2, block.timestamp + 1 days);
 
         uint256 deposit2 = 50 * (10 ** ALICE_DECIMALS);
         _mintAndApprove(user2, deposit2);
@@ -549,12 +550,12 @@ contract RaffleTest is Test {
         // Try to start new raffle before VRF callback
         vm.prank(owner);
         vm.expectRevert(Raffle.VRFRequestPending.selector);
-        raffleContract.startRaffle(TICKET_PRICE, "new", 1, "new", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "new", 1, "new", 1, block.timestamp + 1 days);
     }
 
     function test_emergencyPause() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         vm.prank(owner);
         raffleContract.emergencyPause();
@@ -579,7 +580,7 @@ contract RaffleTest is Test {
 
     function test_calculateWinnerPrize() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
         _mintAndApprove(user, ONE_HUNDRED_ALICE);
 
         vm.prank(user);
@@ -591,7 +592,7 @@ contract RaffleTest is Test {
 
     function test_getTicketPriceFormatted() public {
         vm.prank(owner);
-        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(TICKET_PRICE, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         assertEq(raffleContract.getTicketPriceFormatted(1), 10); // 10 ALICE without decimals
     }
@@ -600,12 +601,12 @@ contract RaffleTest is Test {
     function test_onlyAdminCanCallFunctions() public {
         vm.prank(user);
         vm.expectRevert();
-        raffleContract.startRaffle(1, "part_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(1, "part_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         vm.prank(owner);
         raffleContract.assignAdminRole(user);
         vm.startPrank(user);
-        raffleContract.startRaffle(1, "part_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(1, "part_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
     }
     /**
      * Internal Testing Helper Functions
@@ -620,7 +621,7 @@ contract RaffleTest is Test {
 
     function _setupRaffleWithDeposit(address depositor, uint256 ticketPrice, uint256 amount) internal {
         vm.prank(owner);
-        raffleContract.startRaffle(ticketPrice, "generic_reward", 1, "winner_reward", 1);
+        raffleContract.startRaffle(ticketPrice, "generic_reward", 1, "winner_reward", 1, block.timestamp + 1 days);
 
         _mintAndApprove(depositor, amount);
 
