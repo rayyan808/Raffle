@@ -644,15 +644,21 @@
     // ============ MULTI-NETWORK CONFIGURATION ============
     
     const NETWORK_CONFIG = {
-    mainnet: {
+    eth: {
       chainId: 1,
       chainIdHex: '0x1',
-      chainNamespace: 'eip155',
-      rpcTarget: 'https://eth.llamarpc.com',
-      displayName: 'Ethereum Mainnet',
+      rpcUrl: 'https://eth.llamarpc.com',
+      name: 'Ethereum Mainnet',
+      shortName: 'ETH',
       blockExplorer: 'https://etherscan.io',
+      contractAddress: '0x478B5caB99bf6AC2154b407713eCe9Cf4201c5E7',
       ticker: 'ETH',
       tickerName: 'Ethereum',
+      nativeCurrency: {
+          name: 'Ethereum',
+          symbol: 'ETH',
+          decimals: 18,
+        },
     },
       sepolia: {
         name: 'Sepolia Testnet',
@@ -686,7 +692,7 @@
         chainIdHex: '0x38',
         rpcUrl: 'https://bsc-dataseed.binance.org',
         blockExplorer: 'https://bscscan.com',
-        contractAddress: '0x0000000000000000000000000000000000000000', // TODO: Replace with actual BSC contract
+        contractAddress: '0xFeD0a8745099Cbab002B489f621b85b3F29De484',
         nativeCurrency: {
           name: 'BNB',
           symbol: 'BNB',
@@ -1343,7 +1349,7 @@
                 <span className="network-icon bsc"></span>
                 BSC
               </button>
-               <button 
+               <button
                 className={`network-btn eth ${activeNetwork === 'eth' ? 'active' : ''}`}
                 onClick={() => switchNetwork('eth')}
               >
