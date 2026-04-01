@@ -421,7 +421,11 @@ contract Raffle is Pausable, ReentrancyGuard, VRFConsumerBaseV2Plus, AccessContr
         if (awaitingVrf) revert VRFRequestPending();
         _pause();
     }
-
+    /// @notice Emergency pause (only when not waiting for VRF)
+    function emergencyUnpause() external onlyOwner {
+        if (awaitingVrf) revert VRFRequestPending();
+        _unpause();
+    }
     // ============ VRF Callback ============
 
     /// @notice Callback function used by VRF Coordinator
