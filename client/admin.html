@@ -735,6 +735,7 @@
       "function emergencyPause()",
       "function transferOwnership(address newOwner)",
       "function injectCapital(uint256 amount)",
+      "function deposit(uint256 amount)",
     ];
 
     // ERC20 ABI for approval
@@ -835,6 +836,7 @@
       const [houseFeeForm, setHouseFeeForm] = useState('');
       const [withdrawAddress, setWithdrawAddress] = useState('');
       const [injectAmount, setInjectAmount] = useState('');
+      const [depositAmount, setDepositAmount] = useState('');
       const [newOwner, setNewOwner] = useState('');
       
       const [vrfForm, setVrfForm] = useState({
@@ -1248,9 +1250,28 @@
           await approveTx.wait();
         }
 
-        await executeTransaction('injectCapital', () => 
+        await executeTransaction('injectCapital', () =>
           contract.injectCapital(amount)
         );
+      };
+
+      const handleDeposit = async () => {
+        if (!depositAmount) {
+          showToast('Please enter amount', 'error');
+          return;
+        }
+
+        const amount = parseAlice(depositAmount);
+
+        // Check allowance and approve if needed
+        const allowance = await aliceContract.allowance(userAddress, networkConfig.contractAddress);
+        if (allowance.lt(amount)) {
+          showToast('Approving tokens...', 'warning');
+          const approveTx = await aliceContract.approve(networkConfig.contractAddress, amount);
+          await approveTx.wait();
+        }
+
+        await executeTransaction('deposit', () => contract.deposit(amount));
       };
 
       const handleUpdateVRF = async () => {
@@ -1585,12 +1606,40 @@
                       <p className="form-hint">Add to prize pool without getting tickets</p>
                     </div>
 
-                    <button 
+                    <button
                       className={`btn btn-primary ${isLoading('injectCapital') ? 'loading' : ''}`}
                       onClick={handleInjectCapital}
                       disabled={!signer || safeContractState.paused || isLoading('injectCapital') || networkMismatch}
                     >
                       {isLoading('injectCapital') ? 'Injecting...' : 'Inject Capital'}
+                    </button>
+                  </div>
+
+                  {/* Deposit */}
+                  <div className="card">
+                    <h3 className="card-title">
+                      <span className="card-title-icon">🪙</span>
+                      Deposit
+                    </h3>
+
+                    <div className="form-group">
+                      <label className="form-label">Amount (ALICE)</label>
+                      <input
+                        type="number"
+                        className="form-input"
+                        placeholder="10"
+                        value={depositAmount}
+                        onChange={(e) => setDepositAmount(e.target.value)}
+                      />
+                      <p className="form-hint">Buy tickets by depositing ALICE. Approval will be requested if needed.</p>
+                    </div>
+
+                    <button
+                      className={`btn btn-success ${isLoading('deposit') ? 'loading' : ''}`}
+                      onClick={handleDeposit}
+                      disabled={!signer || safeContractState.paused || isLoading('deposit') || networkMismatch}
+                    >
+                      {isLoading('deposit') ? 'Depositing...' : 'Deposit'}
                     </button>
                   </div>
 
